@@ -1,18 +1,24 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 
 import { APP_NAME } from "@/lib/constants";
 
-import { LoginForm } from "./login-form";
+import { LoginScreen } from "./login-screen";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: `Sign in — ${APP_NAME}`,
 };
 
 /**
- * The URL-independent shell renders instantly. `searchParams` is URL data, so
- * it is resolved inside a `<Suspense>` boundary (Next.js 16 cache components
- * requires URL data to sit behind one during prerendering and navigation).
+ * `searchParams` is URL data (Next.js 16 cache components), so it is resolved
+ * inside a `<Suspense>` boundary; the fallback mirrors the centered card shell.
  */
 export default function LoginPage({
   searchParams,
@@ -20,41 +26,27 @@ export default function LoginPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">{APP_NAME}</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Sign in to your prospecting workspace.
-        </p>
-      </div>
-
-      <Suspense fallback={<LoginFormFallback />}>
-        <ResolvedLoginForm searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex min-h-dvh items-center justify-center bg-[#0D0F16] p-6">
+          <div
+            aria-hidden="true"
+            className="h-96 w-full max-w-[400px] rounded-2xl border border-[#232736] bg-[#151822]"
+          />
+        </div>
+      }
+    >
+      <ResolvedLoginScreen searchParams={searchParams} />
+    </Suspense>
   );
 }
 
-async function ResolvedLoginForm({
+async function ResolvedLoginScreen({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next } = await searchParams;
 
-  return <LoginForm next={next ?? ""} />;
-}
-
-function LoginFormFallback() {
-  return (
-    <div
-      role="status"
-      aria-label="Loading sign-in form"
-      className="flex flex-col gap-4"
-    >
-      <div className="h-9 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
-      <div className="h-9 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
-      <div className="h-10 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
-    </div>
-  );
+  return <LoginScreen next={next ?? ""} className={inter.className} />;
 }

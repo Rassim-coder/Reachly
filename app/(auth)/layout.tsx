@@ -23,9 +23,7 @@ export default async function AuthLayout({
     redirect("/");
   }
 
-  return (
-    <main className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-sm">{children}</div>
-    </main>
-  );
+  // The login screen owns its own full-viewport two-column layout, so this
+  // wrapper stays unstyled apart from flex growth.
+  return <main className="flex min-h-dvh flex-1 flex-col">{children}</main>;
 }

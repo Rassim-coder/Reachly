@@ -52,9 +52,14 @@ export async function signUpWithPassword(
 ): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
 
   if (!email || !password) {
     return { error: "Enter your email and password.", message: null };
+  }
+
+  if (!name) {
+    return { error: "Enter your full name.", message: null };
   }
 
   if (password.length < MIN_PASSWORD_LENGTH) {
@@ -69,7 +74,11 @@ export async function signUpWithPassword(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+      // The `handle_new_user` trigger copies this into `profiles.full_name`.
+      data: { full_name: name },
+    },
   });
 
   if (error) {

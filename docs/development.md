@@ -100,6 +100,14 @@ pnpm lint    # ESLint
 - `lib/supabase/{client,server}.ts` provide the browser and server clients.
   Server code always creates a new client per request.
 - Login and sign-up are Server Actions in `lib/auth/actions.ts`.
+- `/login` (`app/(auth)/login/login-screen.tsx`) submits the form to those
+  actions through `useActionState`; client-side validation blocks invalid
+  submits, and server/authentication errors render in an inline banner.
+- Sign-up passes the full name as `full_name` metadata, which the
+  `handle_new_user` trigger copies into `profiles.full_name`.
+- Password reset is not implemented yet: the "Forgot password?" control only
+  shows an informational banner and sends no email. "Remember me" does not
+  change the session cookie lifetime.
 - `/auth/callback` exchanges the email-confirmation code for a session.
 
 Auth routes are marked `export const instant = false` so Next.js 16 cache
