@@ -19,22 +19,44 @@ Tech stack:
 - Overture Maps data queried using DuckDB and remote GeoParquet
 - Tailwind CSS, following the existing project configuration
 
-Read `PROJECT_BRIEF.md` and the relevant documentation in `docs/` before implementing substantial changes.
+Read `PROJECT_BRIEF.md` and relevant files in `docs/` before substantial changes. Use the actual filenames and casing present in the repository.
 
-## 2. Before Making Changes
+## 2. Non-Negotiable Scope Rules
 
-- Inspect the existing files, package scripts, dependencies, and Git status.
+- Implement only what the current task requests. Do not expand scope without asking.
+- Inspect relevant files first. Do not conduct a repository-wide audit for a focused task.
+- Do not repeat work already completed or investigate unrelated infrastructure.
+- Do not refactor working code, change architecture, or add dependencies unless necessary for the requested feature.
+- Prefer the smallest complete implementation over generalized frameworks or abstractions.
+- Do not create speculative folders, services, interfaces, utilities, or future features in advance.
+- Do not use mocks, placeholders, or hard-coded results to pretend real functionality works.
+- If blocked, explain the specific blocker and propose the smallest resolution.
+- Ask for approval before destructive operations, hosted database changes, applying migrations, deployment changes, or unrelated scope expansion.
+- Do not commit or push unless explicitly asked.
+- At completion, briefly report what works, what remains unfinished, changed files, and checks actually performed.
+
+### Current Implementation Status
+
+- Supabase authentication and session handling are implemented.
+- The dashboard layout and navigation shell are implemented.
+- Prospecting and CRM feature pages remain placeholders until their functionality is implemented and verified.
+- The hosted Supabase database already exists and is the schema source of truth.
+- Do not rebuild existing infrastructure simply because a feature is unfinished.
+
+## 3. Before Making Changes
+
+- Inspect relevant files, package scripts, dependencies, and Git status.
 - Read relevant documentation before implementing a feature.
 - Understand existing conventions before introducing new ones.
-- Preserve working code and the existing dashboard design.
+- Preserve working code, user changes, and the existing dashboard design.
 - Do not overwrite user changes or perform destructive operations without approval.
-- If the repository differs from the documentation, report the difference and update the documentation when appropriate.
+- If the repository differs from the documentation, report the difference and update documentation when appropriate.
 
-## 3. Architecture and Folder Responsibilities
+## 4. Architecture and Folder Responsibilities
 
 Use the existing root-level `app/` directory. Do not introduce `src/` unless explicitly requested.
 
-Follow the target architecture described in `docs/ARCHITECTURE.md`.
+Follow the architecture described in `docs/architecture.md`.
 
 - `app/`: Next.js pages, layouts, loading/error states, and API Route Handlers.
 - `features/`: Feature-specific components, queries, actions, schemas, and types.
@@ -44,14 +66,14 @@ Follow the target architecture described in `docs/ARCHITECTURE.md`.
 - `lib/ai/`: Shared server-side AI integrations when implemented.
 - `hooks/`: Shared React hooks only.
 - `types/`: Types genuinely shared across multiple features.
-- `supabase/migrations/`: Database migrations.
+- `supabase/migrations/`: Active database migrations only.
 - `tests/`: Automated tests.
 - `docs/`: Product requirements, architecture, API contracts, setup, and roadmap.
-- `mocks/`: Temporary development fixtures, never a substitute for production data.
+- `mocks/`: Fixtures for intentional development or testing, never a substitute for production data.
 
-Do not create every proposed folder in advance. Introduce files and abstractions when they are needed.
+Do not create every proposed folder in advance. Introduce files and abstractions when needed. Reuse existing shared UI components where available; do not assume a component directory exists without checking.
 
-## 4. Feature Organization
+## 5. Feature Organization
 
 Keep feature-specific code inside its corresponding `features/` directory.
 
@@ -64,63 +86,65 @@ For example, `features/leads/` may contain:
 
 Use the same principle for businesses, follow-ups, lists, analytics, templates, and other product areas.
 
-Keep route files thin. Avoid putting complete business workflows inside pages or Route Handlers.
+Keep route files thin. Avoid putting complete business workflows inside pages or Route Handlers. Avoid unnecessary abstraction, duplicated implementations, and generic service layers that add no practical value.
 
-Avoid unnecessary abstraction, duplicated implementations, and generic service layers that add no practical value.
-
-## 5. Server and Client Boundaries
+## 6. Server and Client Boundaries
 
 - Keep database access, privileged credentials, DuckDB operations, and AI provider secrets on the server.
 - Never expose Supabase service-role credentials or other secrets to browser code.
 - Use Server Components by default; add Client Components only when interactivity or browser APIs require them.
 - Use Server Actions for appropriate mutations and Route Handlers for HTTP APIs or integrations.
 - Validate all untrusted input on the server.
-- Authenticate users and authorize every operation that accesses or modifies their private data.
+- Authenticate users and authorize every operation that accesses or modifies private data.
 - Never trust a client-provided user ID to establish ownership.
-- Use the existing Supabase authentication and Row Level Security design consistently.
+- Use the existing Supabase authentication and Row Level Security (RLS) design consistently.
 - Do not introduce Prisma or another database ORM without explicit agreement.
 
-## 6. Business Search and Overture
+## 7. Business Search and Overture
 
 - Keep Overture and DuckDB logic isolated inside `lib/overture/`.
 - Perform business searches server-side.
 - Validate search terms, category filters, geographic inputs, and pagination parameters.
 - Normalize external records into stable application-level TypeScript types.
-- Treat optional contact details as nullable; do not fabricate missing phone numbers, websites, or emails.
+- Treat optional contact details as nullable; never fabricate missing phone numbers, websites, or emails.
 - Do not bulk-import or persist every search result.
 - Persist a business record when required by the agreed save-lead workflow.
 - Store user-specific notes, statuses, follow-ups, and activities in the application's database.
 - Keep Overture release versions, source schemas, and category mappings explicit.
 - Do not silently change the data release or query schema.
-- Verify DuckDB compatibility, memory usage, query duration, pagination, and deployment-runtime limitations.
+- Verify DuckDB compatibility, memory usage, query duration, pagination, and deployment-runtime limitations when relevant to the task.
 - Never claim search performance or deployment compatibility without testing it.
 
-Refer to `docs/OVERTURE_SEARCH.md` for implementation details.
+Refer to `docs/overture_search.md` for implementation details.
 
-## 7. Database and Data Integrity
+## 8. Database and Data Integrity
 
-- Follow the agreed schema in `docs/DATABASE.md` and the actual applied migrations.
-- Use migrations for database schema changes.
-- Enforce user isolation through authorization checks and Row Level Security where applicable.
+- The existing hosted Supabase database is the schema source of truth. Inspect its existing generated types, documented schema, and RLS policies before implementing database access.
+- Use the existing schema for normal feature work; do not recreate it or add an initial-schema migration as a substitute for inspecting it.
+- The archived schema baseline is documentation/history, not an active migration. Do not move it back into the active migrations directory or apply it.
+- A genuine schema change may require a migration. Explain the need and proposed change first, and get explicit approval before applying migrations or changing the hosted database.
+- Never run `supabase db push` or alter the hosted database without explicit approval.
+- Enforce user isolation through authorization checks and RLS where applicable.
 - Prevent duplicate lead creation according to the agreed uniqueness rules.
 - Keep lead updates, activities, and follow-ups consistent.
-- Do not silently introduce columns, tables, or relationships that conflict with the documented schema.
+- Do not silently introduce columns, tables, or relationships that conflict with the existing schema.
 - Never apply destructive migrations or delete production data without explicit approval.
-- Regenerate or update database types when the schema changes, using the project's established workflow.
+- Regenerate or update database types when an approved schema change requires it, using the project's established workflow.
 
-## 8. UI and Design
+Refer to `docs/database.md` for the database workflow.
+
+## 9. UI and Design
 
 - Treat the user's latest approved dashboard design as the visual source of truth.
-- Preserve the established design tokens, spacing, typography, colors, and component patterns.
-- Reuse shared components from `components/ui/` where appropriate.
-- Keep feature-specific components inside their feature directory.
+- Preserve established design tokens, spacing, typography, colors, and component patterns.
+- Reuse existing shared components where appropriate; keep feature-specific components inside their feature directory.
 - Avoid unnecessary dependencies and excessive visual effects.
 - Do not replace the dashboard design or redesign unrelated pages without being asked.
 - Provide appropriate loading, empty, error, and success states.
 - Ensure forms, tables, filters, and navigation work correctly on supported screen sizes.
 - Avoid browser alerts for ordinary application feedback; use the project's notification or inline feedback patterns.
 
-## 9. Types, Validation, and Errors
+## 10. Types, Validation, and Errors
 
 - Use TypeScript types that reflect real data contracts.
 - Avoid `any` unless justified and isolated.
@@ -130,20 +154,19 @@ Refer to `docs/OVERTURE_SEARCH.md` for implementation details.
 - Handle missing data, unauthorized access, external service failures, and invalid inputs explicitly.
 - Do not hide failures behind fake fallback data.
 
-## 10. Testing and Quality
+## 11. Testing and Quality
 
 - Inspect available scripts before choosing commands.
-- Run relevant linting, type checks, and tests after changes when available.
-- Test important business logic, authorization, data isolation, duplicate prevention, and failure cases.
-- Test Overture searches with representative niches and locations.
+- Run relevant linting, type checks, and tests after changes when appropriate.
+- Test important business logic, authorization, data isolation, duplicate prevention, and failure cases when relevant.
+- Test Overture searches with representative niches and locations when changing search behavior.
 - Use mocks only for intentional development or testing scenarios.
 - Never report a test as passed unless it was actually run and passed.
 - Clearly state when tests could not be run.
 
-## 11. Scope and Implementation Order
+## 12. Scope and Implementation Order
 
 Prioritize the core workflow:
-
 1. Project setup and architecture.
 2. Supabase schema, authentication, and access control.
 3. Overture business search.
@@ -157,13 +180,13 @@ Prioritize the core workflow:
 
 Do not implement AI features before the core prospecting and CRM workflow works unless explicitly requested.
 
-Do not build an entire application in one large change. Prefer small, reviewable, testable increments.
+Do not build the entire application in one large change. Prefer small, reviewable, testable increments.
 
-## 12. Documentation and Completion Reports
+## 13. Documentation and Completion Reports
 
 - Update relevant documentation when implementation changes architecture, API contracts, schema, setup, or behavior.
 - Distinguish implemented functionality from UI-only, hard-coded, proposed, unverified, and TODO work.
-- Never describe mock data as live integration.
+- Never describe mock data as a live integration.
 - Do not claim a feature is complete merely because its page renders.
 
 At the end of a task, report:

@@ -80,7 +80,9 @@ Search results should not automatically be inserted into Supabase.
 1. The authenticated user selects Save lead.
 2. The server verifies authentication and validates the submitted business identifier and data.
 3. The server resolves the source business record according to the approved schema.
-4. The server creates or retrieves the business record.
+4. The server creates or retrieves the business record using a privileged
+   service-role client (`lib/supabase/admin.ts`), because the `businesses` table
+   has no client write policies.
 5. The server creates the user's lead without creating a duplicate.
 6. The server records the initial activity if required by the approved workflow.
 7. The UI updates only after the operation succeeds or returns an accurate result.
