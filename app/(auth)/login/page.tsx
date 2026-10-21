@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   return (
     <Suspense
@@ -44,9 +44,22 @@ export default function LoginPage({
 async function ResolvedLoginScreen({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
 
-  return <LoginScreen next={next ?? ""} className={inter.className} />;
+  // `/auth/callback` sends failed code exchanges here. The code covers both
+  // email confirmation and password-recovery links.
+  const initialError =
+    error === "callback_failed"
+      ? "That link is invalid or has expired. Sign in or request a new one."
+      : null;
+
+  return (
+    <LoginScreen
+      next={next ?? ""}
+      initialError={initialError}
+      className={inter.className}
+    />
+  );
 }

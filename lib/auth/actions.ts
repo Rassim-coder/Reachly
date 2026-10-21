@@ -14,6 +14,8 @@ export type AuthActionState = {
 
 const MIN_PASSWORD_LENGTH = 8;
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 async function resolveOrigin(): Promise<string> {
   const headerList = await headers();
   return (
@@ -94,6 +96,94 @@ export async function signUpWithPassword(
   return {
     error: null,
     message: "Check your email to confirm your account, then sign in.",
+  };
+}
+
+/**
+ * Sends a Supabase password-recovery email.
+ *
+ * The email link points at the shared `/auth/callback` route, which exchanges
+ * the recovery code for a session and forwards the user to `/reset-password`.
+ *
+ * Supabase Dashboard setup: add every origin this app is served from to
+ * Authentication → URL Configuration → Redirect URLs, including
+ * `http://localhost:3000/auth/callback` for local development and
+ * `<production site>/auth/callback` in production.
+ */
+export async function requestPasswordReset(input: {
+  email: string;
+}): Promise<AuthActionState> {
+  const email = typeof input?.email === "string" ? input.email.trim() : "";
+
+  if (!email) {
+    return { error: "Enter your email first.", message: null };
+  }
+
+  if (!EMAIL_PATTERN.test(email)) {
+    return { error: "Enter a valid email address.", message: null };
+  }
+
+  const origin = await resolveOrigin();
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=%2Freset-password`,
+  });
+
+  if (error) {
+    return { error: error.message, message: null };
+  }
+
+  // Never reveal whether the address belongs to an existing account.
+  return {
+    error: null,
+    message: `If an account exists for ${email}, a reset link is on its way.`,
+  };
+}
+
+/**
+ * Sets a new password for the recovery session created by `/auth/callback`.
+ */
+export async function updatePassword(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("confirmPassword") ?? "");
+
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+      message: null,
+    };
+  }
+
+  if (password !== confirmation) {
+    return { error: "Passwords do not match.", message: null };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error: "Your reset link is invalid or has expired. Request a new one.",
+      message: null,
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: error.message, message: null };
+  }
+
+  revalidatePath("/", "layout");
+
+  return {
+    error: null,
+    message: "Password updated. You can now continue to your dashboard.",
   };
 }
 
