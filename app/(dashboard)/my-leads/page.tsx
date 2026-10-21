@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function MyLeadsPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="My Leads"
         description="The businesses you have saved, with status and follow-up dates."
@@ -12,6 +12,6 @@ export default function MyLeadsPage() {
           "Open a lead to view details, notes, and activity.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }

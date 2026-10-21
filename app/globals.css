@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens mirror `reference/Reachly Dashboard (1).html`. They are
+ * declared as Tailwind theme colors so every dashboard component can use
+ * `bg-surface`, `text-muted`, `border-line`, etc., in both themes.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --rl-bg: #f7f8fb;
+  --rl-card: #ffffff;
+  --rl-side: #fafbfd;
+  --rl-bd: #e8eaf0;
+  --rl-tx: #111827;
+  --rl-tx2: #6b7280;
+  --rl-tx3: #9ca3af;
+  --rl-pri: #6d3ff0;
+  --rl-tint: #eeeafe;
+  --rl-blue: #0a8fe0;
+  --rl-orange: #f97316;
+  --rl-ok: #16a34a;
+  --rl-okbg: #e8f7ee;
+  --rl-input: #f3f4f8;
+  --rl-grad: linear-gradient(135deg, #7c4dff 0%, #6d3ff0 40%, #0a8fe0 100%);
+  --rl-sh: 0 1px 3px rgba(16, 24, 40, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --rl-bg: #0d0f16;
+    --rl-card: #151822;
+    --rl-side: #11141c;
+    --rl-bd: #232736;
+    --rl-tx: #f3f4f8;
+    --rl-tx2: #9aa1b2;
+    --rl-tx3: #6b7280;
+    --rl-pri: #8b6bff;
+    --rl-tint: #231d4a;
+    --rl-okbg: #12301f;
+    --rl-input: #1b1f2c;
+    --rl-sh: none;
   }
 }
 
+:root[data-theme="dark"] {
+  --rl-bg: #0d0f16;
+  --rl-card: #151822;
+  --rl-side: #11141c;
+  --rl-bd: #232736;
+  --rl-tx: #f3f4f8;
+  --rl-tx2: #9aa1b2;
+  --rl-tx3: #6b7280;
+  --rl-pri: #8b6bff;
+  --rl-tint: #231d4a;
+  --rl-okbg: #12301f;
+  --rl-input: #1b1f2c;
+  --rl-sh: none;
+}
+
+@theme inline {
+  --color-canvas: var(--rl-bg);
+  --color-surface: var(--rl-card);
+  --color-sidebar: var(--rl-side);
+  --color-line: var(--rl-bd);
+  --color-ink: var(--rl-tx);
+  --color-muted: var(--rl-tx2);
+  --color-faint: var(--rl-tx3);
+  --color-primary: var(--rl-pri);
+  --color-tint: var(--rl-tint);
+  --color-accent-blue: var(--rl-blue);
+  --color-accent-orange: var(--rl-orange);
+  --color-positive: var(--rl-ok);
+  --color-positive-soft: var(--rl-okbg);
+  --color-field: var(--rl-input);
+
+  --shadow-card: var(--rl-sh);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--rl-bg);
+  color: var(--rl-tx);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+}
+
+/*
+ * Collapsed icon-rail sidebar (reference: `small-side`). Applied by
+ * `DashboardNav` on the <aside>, so descendant labels can be hidden with a
+ * plain class rather than per-element data attributes.
+ */
+.rl-rail-collapsed .rl-rail-label {
+  display: none;
+}
+
+.rl-rail-collapsed .rl-rail-item {
+  justify-content: center;
+  padding-inline: 0;
 }

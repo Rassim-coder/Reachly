@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function FollowUpsPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="Follow-ups"
         description="Scheduled next steps, most urgent first."
@@ -12,6 +12,6 @@ export default function FollowUpsPage() {
           "Navigation count derived from persisted follow-up data.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }

@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function TemplatesPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="Templates"
         description="Reusable outreach messages."
@@ -12,6 +12,6 @@ export default function TemplatesPage() {
           "Substitute {name}, {business}, and {city} from lead data when available.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }

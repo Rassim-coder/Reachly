@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reachly Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.453.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{--bg:#f7f8fb;--card:#fff;--side:#fafbfd;--bd:#e8eaf0;--tx:#111827;--tx2:#6b7280;--tx3:#9ca3af;--pri:#6d3ff0;--tint:#eeeafe;--blue:#0a8fe0;--orange:#f97316;--ok:#16a34a;--okbg:#e8f7ee;--input:#f3f4f8;--grad:linear-gradient(135deg,#7c4dff 0%,#6d3ff0 40%,#0a8fe0 100%);--sh:0 1px 3px rgba(16,24,40,.06);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0f16;--card:#151822;--side:#11141c;--bd:#232736;--tx:#f3f4f8;--tx2:#9aa1b2;--tx3:#6b7280;--pri:#8b6bff;--tint:#231d4a;--okbg:#12301f;--input:#1b1f2c;--sh:none}}
+:root[data-theme="dark"]{--bg:#0d0f16;--card:#151822;--side:#11141c;--bd:#232736;--tx:#f3f4f8;--tx2:#9aa1b2;--tx3:#6b7280;--pri:#8b6bff;--tint:#231d4a;--okbg:#12301f;--input:#1b1f2c;--sh:none}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:400 13px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+a{color:var(--pri);text-decoration:none;font-weight:500}
+:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.app{display:flex;min-height:100vh}
+aside{width:236px;flex:none;background:var(--side);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;transition:width .2s;z-index:20}
+.logo{display:flex;align-items:center;gap:10px;height:50px;padding:0 16px;border-bottom:1px solid var(--bd)}
+.logo i{width:28px;height:28px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;flex:none}
+.logo i svg{width:14px;height:14px}
+.logo b{display:block;color:var(--pri);font-size:13px;line-height:1.1}
+.logo small{font-size:9px;letter-spacing:.1em;color:var(--tx3)}
+.collapse{position:absolute;right:-11px;top:68px;width:22px;height:22px;border-radius:50%;background:var(--card);border:1px solid var(--bd);display:grid;place-items:center;color:var(--tx2)}
+.collapse svg{width:12px;height:12px;transition:transform .2s}
+nav{flex:1;overflow:auto;padding:8px 8px 12px}
+.grp{display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px 10px 6px;font-size:10px;letter-spacing:.08em;color:var(--tx3);font-weight:500;text-transform:uppercase}
+.grp svg{width:12px;height:12px;transition:transform .15s}
+.grp[aria-expanded=false] svg{transform:rotate(-90deg)}
+.grp[aria-expanded=false]+ul{display:none}
+nav ul{list-style:none;margin:0;padding:0}
+.item{position:relative;display:flex;align-items:center;gap:12px;height:36px;padding:0 10px;border-radius:10px;color:var(--tx2);font-weight:500;width:100%;text-align:left;transition:background .15s}
+.item:hover{background:var(--input)}
+.item svg{width:18px;height:18px;stroke-width:1.5;flex:none}
+.item.on{background:var(--tint);color:var(--pri)}
+.item.on::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--pri)}
+.badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:600;border-radius:99px;padding:1px 7px}
+.user{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--bd)}
+.user .meta{flex:1;line-height:1.2}.user .meta small{color:var(--tx3);font-size:11px;display:block}
+.user>svg{width:16px;height:16px;color:var(--tx3)}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:600;flex:none}
+.small-side aside{width:68px}
+.small-side .lbl,.small-side .grp,.small-side .badge,.small-side .logo div,.small-side .user .meta,.small-side .user>svg{display:none}
+.small-side .collapse svg{transform:rotate(180deg)}
+.small-side .item{justify-content:center;padding:0}
+main{flex:1;min-width:0}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;height:50px;background:var(--card);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;padding:0 18px}
+.search{display:flex;align-items:center;gap:8px;background:var(--input);border:1px solid var(--bd);border-radius:99px;height:30px;padding:0 12px;width:230px;color:var(--tx3)}
+.search svg{width:14px;height:14px}.search span{flex:1}
+kbd{font:500 10px Inter;border:1px solid var(--bd);border-radius:5px;padding:0 5px;background:var(--card)}
+.sp{flex:1}
+.btn{display:flex;align-items:center;gap:6px;height:30px;padding:0 14px;border-radius:99px;background:linear-gradient(90deg,#6d3ff0,#0a8fe0);color:#fff;font-weight:500;box-shadow:0 2px 6px rgba(109,63,240,.3)}
+.btn svg{width:14px;height:14px}
+.vr{width:1px;height:22px;background:var(--bd)}
+.ib{position:relative;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--tx2)}
+.ib:hover{background:var(--input)}.ib svg{width:16px;height:16px}
+.dot{position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:#ef4444}
+.content{padding:18px;max-width:1280px;margin:0 auto}
+.hero{position:relative;overflow:hidden;border-radius:20px;padding:28px;color:#fff;background:var(--grad)}
+.hero::after{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.18) 1px,transparent 1px);background-size:18px 18px;opacity:.5;pointer-events:none}
+.hero>*{position:relative;z-index:1}
+.hero h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em}
+.hero p{margin:4px 0 22px;opacity:.78}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:14px 16px;backdrop-filter:blur(8px)}
+.kpi .l{display:flex;align-items:center;gap:6px;opacity:.78;font-size:12px}.kpi svg{width:14px;height:14px}
+.kpi .v{font-size:24px;font-weight:700;margin:4px 0 2px}
+.kpi .t{font-size:11px;opacity:.9;display:flex;align-items:center;gap:4px}.kpi .t b{color:#6ee7b7;font-weight:500}
+.grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(0,1fr);gap:18px;margin-top:18px}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;box-shadow:var(--sh)}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.ch h2{margin:0;font-size:15px;font-weight:600}.ch p{margin:0;font-size:12px;color:var(--tx2)}
+.ch a{display:flex;align-items:center;gap:3px;font-size:12px}.ch a svg{width:11px;height:11px}
+.seg{display:flex;background:var(--input);border-radius:99px;padding:3px}
+.seg button{padding:2px 12px;border-radius:99px;font-size:11px;font-weight:600;color:var(--tx2)}
+.seg button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.chart svg{width:100%;height:auto;display:block}
+.chart text{font:400 11px Inter;fill:var(--tx2)}
+.bar{display:flex;height:8px;border-radius:99px;overflow:hidden;gap:0}
+.legend{display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--tx2);flex-wrap:wrap;gap:6px}
+.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.act{display:flex;align-items:center;gap:12px;padding:8px 0}
+.act .av{width:32px;height:32px}.act span.tm{margin-left:auto;color:var(--tx3);font-size:12px}
+.act b{font-weight:600}.act em{font-style:normal;color:var(--tx2)}
+.dep{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--bd)}
+.dep:first-of-type{border-top:0}
+.ok{width:28px;height:28px;border-radius:50%;background:var(--okbg);color:var(--ok);display:grid;place-items:center;flex:none}.ok svg{width:14px;height:14px}
+.dep .m{flex:1;min-width:0}.dep .m b{font-weight:500;display:block;font-size:13px}
+.tags{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--tx2);margin-top:2px}
+.pill{background:var(--tint);color:var(--pri);border-radius:99px;padding:0 8px;font-weight:500}
+.tags svg{width:11px;height:11px;vertical-align:-1px}
+.dep .tm{color:var(--tx3);font-size:12px;white-space:nowrap}
+.fa{display:grid;grid-template-columns:70px 1fr;gap:10px 8px;align-items:center;font-size:12px;color:var(--tx2)}
+.fa .tr{height:12px;border-radius:99px;background:var(--input)}
+.fa .fl{height:100%;border-radius:99px;background:linear-gradient(90deg,#6d3ff0,#2aa8f0)}
+@media(max-width:1024px){
+ aside{position:fixed;left:0;transform:translateX(-100%);width:236px!important}
+ .open aside{transform:none;box-shadow:0 0 40px rgba(0,0,0,.25)}
+ .collapse{display:none}
+ .grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}
+ .menu{display:grid!important}
+}
+@media(max-width:600px){.kpis{grid-template-columns:1fr}.search{display:none}.content{padding:12px}.btn span{display:none}.btn{padding:0 9px}}
+.menu{display:none}
+.pv{display:none}.pv.on{display:block}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}.ph h1{margin:0;font-size:22px;font-weight:700}.ph p{margin:2px 0 0;color:var(--tx2)}
+.tw{overflow-x:auto}.tb{width:100%;border-collapse:collapse;white-space:nowrap}.tb th{text-align:left;font-size:11px;color:var(--tx3);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--bd)}.tb td{padding:11px 10px;border-bottom:1px solid var(--bd)}.tb tr:last-child td{border:0}
+.st{border-radius:99px;padding:1px 9px;font-size:11px;font-weight:500;background:var(--tint);color:var(--pri)}.st.c{background:rgba(10,143,224,.14);color:var(--blue)}.st.r{background:var(--okbg);color:var(--ok)}.st.o{background:rgba(249,115,22,.14);color:var(--orange)}
+.fb{display:flex;gap:10px;flex-wrap:wrap}input[type=text],select,textarea{height:36px;border:1px solid var(--bd);border-radius:10px;background:var(--input);color:var(--tx);padding:0 12px;font:inherit}textarea{height:84px;padding:10px 12px;resize:vertical;width:100%}
+input[type=checkbox]{accent-color:var(--pri);width:16px;height:16px}
+.chips{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.chip{border:1px solid var(--bd);border-radius:99px;padding:3px 13px;font-weight:500;color:var(--tx2);background:var(--card)}.chip.on{background:var(--tint);color:var(--pri);border-color:transparent}
+.sbtn{height:28px;padding:0 12px;border-radius:99px;border:1px solid var(--bd);font-weight:500}.sbtn.on{background:var(--okbg);color:var(--ok);border-color:transparent}
+.g3{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:16px}
+.cols{display:flex;align-items:flex-end;gap:10px;height:170px}.cols div{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;font-size:11px;color:var(--tx2)}.cols i{display:block;width:100%;border-radius:6px 6px 0 0;background:var(--grad)}
+.done{opacity:.5;text-decoration:line-through}.f label{display:block;font-weight:500;margin:14px 0 4px}.f input[type=text]{width:100%}
+.gh{font-size:11px;color:var(--tx3);font-weight:500;margin:10px 0 2px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+<aside>
+ <div class="logo"><i data-lucide="send"></i><div><b>Reachly</b><small>PROSPECTING</small></div></div>
+ <button class="collapse" id="col" aria-label="Collapse sidebar"><i data-lucide="chevron-left"></i></button>
+ <nav id="nav"></nav>
+ <div class="user"><div class="av" style="background:linear-gradient(135deg,#3b82f6,#6d3ff0);width:36px;height:36px;font-size:11px">RS</div><div class="meta">Rassim<small>Founder</small></div><i data-lucide="log-out"></i></div>
+</aside>
+<main>
+ <header>
+  <button class="ib menu" id="menu" aria-label="Open menu"><i data-lucide="menu"></i></button>
+  <div class="search"><i data-lucide="search"></i><span>Search leads and businesses…</span><kbd>⌘K</kbd></div>
+  <div class="sp"></div>
+  <button class="btn"><i data-lucide="plus"></i><span>Add lead</span></button>
+  <div class="vr"></div>
+  <button class="ib" id="theme" aria-label="Toggle dark mode"><i data-lucide="moon"></i></button>
+  <button class="ib" aria-label="Theme colors"><i data-lucide="palette"></i></button>
+  <button class="ib" aria-label="Notifications"><i data-lucide="bell"></i><span class="dot"></span></button>
+  <div class="av" style="background:linear-gradient(135deg,#3b82f6,#6d3ff0)">RS</div>
+ </header>
+ <div class="content"><div id="v-Overview">
+  <section class="hero">
+   <h1>Good morning, Rassim</h1>
+   <p>Here’s where your pipeline stands today.</p>
+   <div class="kpis" id="kpis"></div>
+  </section>
+  <div class="grid">
+   <div class="col">
+    <div class="card"><div class="ch"><div><h2>Leads Over Time</h2><p>Leads saved and contacted per month</p></div>
+     <div class="seg"><button class="on" data-m="saved">Saved</button><button data-m="contacted">Contacted</button></div></div>
+     <div class="chart" id="chart"></div></div>
+    <div class="card"><div class="ch"><div><h2>Recent Leads</h2><p>Latest businesses you saved</p></div><a href="#">View all <i data-lucide="arrow-up-right"></i></a></div><div id="deps"></div></div>
+   </div>
+   <div class="col">
+    <div class="card"><div class="ch"><div><h2>Pipeline</h2><p>248 leads by status</p></div><a href="#">View leads <i data-lucide="arrow-up-right"></i></a></div>
+     <div class="bar"><div style="flex:120;background:var(--pri)"></div><div style="flex:94;background:var(--blue)"></div><div style="flex:34;background:var(--orange)"></div></div>
+     <div class="legend"><span><i style="background:var(--pri)"></i>New (120)</span><span><i style="background:var(--blue)"></i>Contacted (94)</span><span><i style="background:var(--orange)"></i>Replied (34)</span></div></div>
+    <div class="card"><div class="ch"><div><h2>Follow-ups Due</h2><p>Next on your list</p></div><a href="#">View all <i data-lucide="arrow-up-right"></i></a></div><div id="team"></div></div>
+    <div class="card"><div class="ch"><div><h2>Leads by Niche</h2><p>Share of your saved leads</p></div><a href="#">Lists <i data-lucide="arrow-up-right"></i></a></div><div class="fa" id="fa"></div></div>
+   </div>
+  </div></div>
+  <div id="views"></div>
+ </div>
+</main>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const groups=[["Prospecting",[["layout-dashboard","Overview"],["search","Find Businesses"],["bookmark","My Leads"],["bell-ring","Follow-ups",8]]],
+["Organize",[["list","Lists"],["bar-chart-3","Analytics"],["file-text","Templates"]]],
+["Assistant",[["bot","AI Assistant","Soon"],["settings","Settings"]]]];
+$("#nav").innerHTML=groups.map(([g,it])=>`<button class="grp" aria-expanded="true">${g}<i data-lucide="chevron-down"></i></button><ul>${it.map(([ic,n,b])=>`<li><button class="item ${n=="Overview"?"on":""}"><i data-lucide="${ic}"></i><span class="lbl">${n}</span>${b?`<span class="badge">${b}</span>`:""}</button></li>`).join("")}</ul>`).join("");
+document.querySelectorAll(".grp").forEach(b=>b.onclick=()=>b.setAttribute("aria-expanded",b.getAttribute("aria-expanded")!="true"));
+document.querySelectorAll(".item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".item").forEach(x=>x.classList.remove("on"));b.classList.add("on");show(b.querySelector(".lbl").textContent)});
+$("#col").onclick=()=>$("#app").classList.toggle("small-side");
+$("#menu").onclick=()=>$("#app").classList.toggle("open");
+$("#theme").onclick=()=>{const r=document.documentElement;const d=r.dataset.theme?r.dataset.theme=="dark":matchMedia("(prefers-color-scheme:dark)").matches;r.dataset.theme=d?"light":"dark";draw()};
+$("#kpis").innerHTML=[["bookmark","Leads Saved","248","+18.4%"],["send","Contacted","126","+12.7%"],["message-circle","Replies","34","+26.1%"],["bell-ring","Follow-ups Due","8","+3.0%"]].map(([i,l,v,t])=>`<div class="kpi"><div class="l"><i data-lucide="${i}"></i>${l}</div><div class="v">${v}</div><div class="t"><i data-lucide="trending-up" style="color:#6ee7b7"></i><b>${t}</b> vs last month</div></div>`).join("");
+const D={saved:[22,31,38,45,52,64,78],contacted:[12,18,24,30,36,45,54]},mon=["Apr","May","Jun","Jul","Aug","Sep","Oct"];let mode="saved";
+function draw(){const mrr=D[mode],k=1,max=100,W=600,H=330,L=54,R=584,T=10,B=290;
+ const x=i=>L+14+i*((R-L-28)/6),y=v=>B-(v*k/max)*(B-T);
+ const pts=mrr.map((v,i)=>[x(i),y(v)]);
+ let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=1;i<pts.length;i++){const[a,b]=pts[i-1],[c,e]=pts[i],m=(a+c)/2;d+=` C${m},${b} ${m},${e} ${c},${e}`}
+ const grid=[0,1,2,3,4].map(i=>{const yy=B-i*(B-T)/4;return `<line x1="${L}" x2="${R}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="${i?"2 4":"0"}"/><text x="${L-8}" y="${yy+4}" text-anchor="end">${max/4*i}</text>`}).join("");
+ $("#chart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Leads over time chart"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d3ff0" stop-opacity=".18"/><stop offset="1" stop-color="#6d3ff0" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${d} L${pts[6][0]},${B} L${pts[0][0]},${B}Z" fill="url(#g)"/><path d="${d}" fill="none" stroke="var(--pri)" stroke-width="2.2" stroke-linecap="round"/>${mon.map((m,i)=>`<text x="${x(i)}" y="${B+22}" text-anchor="middle">${m}</text>`).join("")}${pts.map(([a,b],i)=>`<circle cx="${a}" cy="${b}" r="12" fill="transparent"><title>${mon[i]}: ${mrr[i]} leads</title></circle>`).join("")}</svg>`}
+draw();
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.classList.remove("on"));b.classList.add("on");mode=b.dataset.m;draw()});
+const gr=["#3b82f6,#6d3ff0","#06b6d4,#0f9d8a","#22c55e,#f59e0b","#ec4899,#ef4444","#a855f7,#6d3ff0"];
+$("#team").innerHTML=[["AD","Atlas Dental","send the quote","Today"],["BC","Blida Café","WhatsApp reminder","Today"],["NB","Nour Bakery","call back","Tomorrow"],["ZG","Zed Gym","email follow-up","Thu"],["SP","Sahara Print","check for a reply","Fri"]].map(([i,n,a,t],k)=>`<div class="act"><div class="av" style="background:linear-gradient(135deg,${gr[k]})">${i}</div><div><b>${n}</b> <em>${a}</em></div><span class="tm">${t}</span></div>`).join("");
+$("#deps").innerHTML=[["Atlas Dental Clinic","New","Dentist · Blida","2 min ago"],["Blida Café","Contacted","Café · Blida","1 hr ago"],["Nour Bakery","Replied","Bakery · Boufarik","3 hr ago"]].map(([t,e,b,w])=>`<div class="dep"><div class="ok"><i data-lucide="check-circle-2"></i></div><div class="m"><b>${t}</b><div class="tags"><span class="pill">${e}</span><span><i data-lucide="map-pin"></i> ${b}</span></div></div><span class="tm">${w}</span></div>`).join("");
+$("#fa").innerHTML=[["Dentists",38],["Cafés",27],["Gyms",18],["Bakeries",11],["Print",6]].map(([n,v])=>`<span>${n}</span><div class="tr" title="${v}%"><div class="fl" style="width:${v*2.4}%"></div></div>`).join("");
+const P={};
+const pill=s=>`<span class='st ${({New:'',Contacted:'c',Replied:'r','Follow-up':'o'})[s]}'>${s}</span>`;
+const head=(t,s,b='')=>`<div class='ph'><div><h1>${t}</h1><p>${s}</p></div>${b}</div>`;
+const tbl=(h,r)=>`<div class='tw'><table class='tb'><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r.map(c=>`<tr>${c.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const L=[['Atlas Dental Clinic','Dentist','Blida','New','—','Today'],['Blida Café','Café','Blida','Contacted','2 days ago','Today'],['Nour Bakery','Bakery','Boufarik','Replied','Yesterday','Tomorrow'],['Zed Gym','Gym','Blida','Follow-up','5 days ago','Thu'],['Sahara Print','Print shop','Oued Alleug','Contacted','3 days ago','Fri'],['Riad Optique','Optician','Blida','New','—','—'],['Yasmine Pharmacy','Pharmacy','Bouinan','Replied','Today','Mon']];
+function sv(b){const o=b.classList.toggle('on');b.textContent=o?'Saved':'Save lead'}
+function fl(s,b){document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c==b));$('#lt').innerHTML=tbl(['Business','Niche','Location','Status','Last contact','Next follow-up'],L.filter(l=>s=='All'||l[3]==s).map(l=>[`<b>${l[0]}</b>`,l[1],l[2],pill(l[3]),l[4],l[5]]))}
+function cp(b){try{navigator.clipboard.writeText(b.dataset.t)}catch(e){}b.textContent='Copied'}
+P['Find Businesses']=head('Find Businesses','Search by niche and location, then save the ones worth contacting.')+`<div class='card'><div class='fb'><input type='text' value='Dentist' aria-label='Niche'><input type='text' value='Blida' aria-label='Location'><button class='btn'><i data-lucide='search'></i><span>Search</span></button></div></div><div class='card' style='margin-top:16px'><div class='ch'><div><h2>6 results</h2><p>Dentists in Blida</p></div></div>${tbl(['Business','Niche','Location','Rating','Phone',''],[['Atlas Dental Clinic','Dentist','Blida','4.6','0550 12 34 56'],['Cabinet Dr. Meziane','Dentist','Blida','4.4','0661 22 18 90'],['Smile Center','Dentist','Boufarik','4.8','0770 45 61 03'],['Dental Plus','Dentist','Blida','4.1','0555 90 12 47'],['Clinique El Amel','Dentist','Bouinan','4.3','0662 38 70 15'],['Dr. Haddad Orthodontics','Dentist','Blida','4.7','0540 77 21 68']].map(r=>[`<b>${r[0]}</b>`,r[1],r[2],'★ '+r[3],r[4],`<button class='sbtn' onclick='sv(this)'>Save lead</button>`]))}</div>`;
+P['My Leads']=head('My Leads','Every business you saved, with its status.','<button class="btn"><i data-lucide="plus"></i><span>Add lead</span></button>')+`<div class='chips'>${['All','New','Contacted','Replied','Follow-up'].map((c,i)=>`<button class='chip${i?'':' on'}' onclick="fl('${c}',this)">${c}</button>`).join('')}</div><div class='card' id='lt'></div>`;
+P['Follow-ups']=head('Follow-ups','Tick off each one as you do it.')+[['Overdue',[['Zed Gym','call back','3 days ago'],['Sahara Print','check for a reply','1 day ago']]],['Today',[['Atlas Dental Clinic','send the quote','10:00'],['Blida Café','WhatsApp reminder','15:30']]],['This week',[['Nour Bakery','call back','Tomorrow'],['Yasmine Pharmacy','email follow-up','Mon']]]].map(([g,r])=>`<div class='card' style='margin-bottom:16px'><div class='ch'><div><h2>${g}</h2><p>${r.length} follow-ups</p></div></div>${r.map(([n,a,t])=>`<label class='act'><input type='checkbox' onchange="this.parentNode.classList.toggle('done')"><div><b>${n}</b> <em>${a}</em></div><span class='tm'>${t}</span></label>`).join('')}</div>`).join('');
+P['Lists']=head('Lists','Group your leads into named lists.','<button class="btn"><i data-lucide="plus"></i><span>New list</span></button>')+`<div class='g3'>${[['Dentists in Blida',42,60,'Today'],['Cafés and bakeries',58,35,'Yesterday'],['Gyms, Boufarik',17,80,'3 days ago'],['Print shops',31,20,'Last week']].map(([n,c,p,u])=>`<div class='card'><div class='ch'><div><h2>${n}</h2><p>${c} leads · updated ${u}</p></div></div><div class='bar'><div style='width:${p}%;background:var(--pri)'></div><div style='flex:1;background:var(--input)'></div></div><div class='legend'><span>${p}% contacted</span><a href='#'>Open</a></div></div>`).join('')}</div>`;
+P['Analytics']=head('Analytics','How your outreach is performing.')+`<div class='g3'>${[['Reply rate','27%'],['Avg. time to reply','1.8 days'],['Contacted this month','126'],['Deals won','9']].map(([a,b])=>`<div class='card'><p style='margin:0;color:var(--tx2)'>${a}</p><div style='font-size:24px;font-weight:700'>${b}</div></div>`).join('')}</div><div class='grid' style='margin-top:0'><div class='card'><div class='ch'><div><h2>Contacts per Week</h2><p>Last 7 weeks</p></div></div><div class='cols'>${[18,24,21,30,27,36,42].map((v,i)=>`<div><i style='height:${v*2}%'></i>W${i+1}</div>`).join('')}</div></div><div class='card'><div class='ch'><div><h2>Funnel</h2><p>From saved to won</p></div></div><div class='fa'>${[['Saved',100],['Contacted',51],['Replied',14],['Won',4]].map(([n,v])=>`<span>${n}</span><div class='tr'><div class='fl' style='width:${v}%'></div></div>`).join('')}</div></div></div>`;
+P['Templates']=head('Templates','Reusable messages for WhatsApp, email and calls.','<button class="btn"><i data-lucide="plus"></i><span>New template</span></button>')+`<div class='g3'>${[['WhatsApp intro','Hi {name}, I’m Rassim. I saw {business} in {city} and I help local businesses get more clients. Can I send you a short proposal?'],['Email intro','Subject: A quick idea for {business}\n\nHello {name}, I’d like to share one way to bring you more clients this month. Do you have 10 minutes this week?'],['Call script','1. Introduce yourself.\n2. Mention what you noticed about {business}.\n3. Offer one clear benefit.\n4. Ask to book a short meeting.']].map(([n,t])=>`<div class='card'><div class='ch'><h2>${n}</h2></div><p style='white-space:pre-line;color:var(--tx2);margin:0 0 12px'>${t}</p><button class='sbtn' data-t="${t.replace(/"/g,'')}" onclick='cp(this)'>Copy</button></div>`).join('')}</div>`;
+P['AI Assistant']=head('AI Assistant','Preview only. Nothing here calls an AI yet.','<span class="st">Coming soon</span>')+`<div class='grid' style='margin-top:0'><div class='card'><div class='ch'><div><h2>Lead qualification</h2><p>Atlas Dental Clinic</p></div><span class='st r'>Good fit</span></div><div class='fa' style='grid-template-columns:110px 1fr'>${[['Fit score',82],['Reachable',90],['Need',65]].map(([n,v])=>`<span>${n}</span><div class='tr'><div class='fl' style='width:${v}%'></div></div>`).join('')}</div><p style='color:var(--tx2);margin:14px 0 0'>Active in your target niche, rated 4.6, no website found, so a web offer is relevant.</p></div><div class='card'><div class='ch'><div><h2>Draft message</h2><p>Based on your templates</p></div></div><p style='color:var(--tx2);margin:0 0 12px'>Hi, I’m Rassim. I noticed Atlas Dental Clinic has no website yet. Can I send you a short proposal?</p><button class='sbtn' disabled>Draft message</button></div></div>`;
+P['Settings']=head('Settings','Your profile and your ideal customer.')+`<div class='grid' style='margin-top:0'><div class='card f'><div class='ch'><div><h2>Ideal customer</h2><p>Used to suggest businesses and write messages</p></div></div><label>Your name</label><input type='text' value='Rassim'><label>Target niches</label><input type='text' value='Dentists, cafés, gyms'><label>Target location</label><input type='text' value='Blida and nearby towns'><label>What you offer</label><textarea>Websites and online booking for local businesses.</textarea><button class='btn' style='margin-top:16px' onclick="this.querySelector('span').textContent='Saved'"><span>Save changes</span></button></div><div class='card'><div class='ch'><div><h2>Notifications</h2><p>Choose what you hear about</p></div></div>${['Daily follow-up reminder','Weekly pipeline summary','New reply logged'].map((n,i)=>`<label class='act'><input type='checkbox'${i<2?' checked':''}><span>${n}</span></label>`).join('')}</div></div>`;
+$('#views').innerHTML=Object.entries(P).map(([k,h])=>`<div class='pv' id='pv-${k.replace(/\s/g,'')}'>${h}</div>`).join('');
+fl('All',document.querySelector('.chip'));
+function show(n){$('#v-Overview').style.display=n=='Overview'?'':'none';document.querySelectorAll('.pv').forEach(p=>p.classList.toggle('on',p.id=='pv-'+n.replace(/\s/g,'')));$('#app').classList.remove('open');lucide.createIcons();scrollTo(0,0)}
+lucide.createIcons();
+</script>
+</body>
+</html>

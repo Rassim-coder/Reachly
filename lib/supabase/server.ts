@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import { supabasePublishableKey, supabaseUrl } from "@/lib/env";
 
@@ -13,6 +14,12 @@ import type { Database } from "./database.types";
  * and harmless as long as `proxy.ts` refreshes the session on every request.
  */
 export async function createClient() {
+  // Supabase's auth client calls `Date.now()` when it loads the stored session
+  // to compare the token expiry. Next.js 16 rejects that while prerendering a
+  // route shell, so every caller is opted into request-time rendering here
+  // rather than having to remember this at each call site.
+  await connection();
+
   const cookieStore = await cookies();
 
   return createServerClient<Database>(supabaseUrl, supabasePublishableKey, {

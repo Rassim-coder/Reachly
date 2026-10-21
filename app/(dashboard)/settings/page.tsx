@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function SettingsPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="Settings"
         description="Your profile and prospecting preferences."
@@ -12,6 +12,6 @@ export default function SettingsPage() {
           "Notification preferences.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }

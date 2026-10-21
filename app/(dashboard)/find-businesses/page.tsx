@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function FindBusinessesPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="Find Businesses"
         description="Search for businesses by niche and location."
@@ -12,6 +12,6 @@ export default function FindBusinessesPage() {
           "Save a business as a personal lead.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }

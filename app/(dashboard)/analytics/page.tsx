@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function AnalyticsPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="Analytics"
         description="Prospecting performance over time."
@@ -12,6 +12,6 @@ export default function AnalyticsPage() {
           "Date range filters — metrics are only shown once their formula is defined.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }

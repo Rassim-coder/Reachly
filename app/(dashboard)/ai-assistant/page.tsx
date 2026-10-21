@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function AiAssistantPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="AI Assistant"
         description="Lead qualification and outreach drafts."
@@ -12,6 +12,6 @@ export default function AiAssistantPage() {
           "AI suggestions kept clearly distinguishable from verified business data.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }

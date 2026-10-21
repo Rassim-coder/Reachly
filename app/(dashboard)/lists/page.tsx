@@ -1,8 +1,8 @@
-import { PendingFeature } from "@/components/ui/page-shell";
+import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
 
 export default function ListsPage() {
   return (
-    <div className="p-6">
+    <DashboardPage>
       <PendingFeature
         title="Lists"
         description="Organize saved leads into groups."
@@ -12,6 +12,6 @@ export default function ListsPage() {
           "Counts and contacted progress calculated from real data.",
         ]}
       />
-    </div>
+    </DashboardPage>
   );
 }
