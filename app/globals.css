@@ -76,19 +76,20 @@
   --color-field: var(--rl-input);
 
   --shadow-card: var(--rl-sh);
-
-  /*
-   * Inter is loaded once in `app/layout.tsx` and exposed as `--font-sans`.
-   * The reference uses Inter throughout, including for code-style keys such as
-   * the header's ⌘K hint.
-   */
-  --font-sans: var(--font-sans), system-ui, sans-serif;
 }
 
+/*
+ * Inter is loaded once in `app/layout.tsx` and exposed on <html> as
+ * `--font-sans` via next/font. That variable is NOT redeclared here: a
+ * self-referential `--font-sans: var(--font-sans)` would win the cascade and
+ * invalidate the whole declaration, dropping body text to the browser's
+ * default serif. The reference uses Inter throughout, including for the
+ * header's ⌘K key hint.
+ */
 body {
   background: var(--rl-bg);
   color: var(--rl-tx);
-  font-family: var(--font-sans);
+  font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

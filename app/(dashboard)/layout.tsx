@@ -37,7 +37,7 @@ export default async function DashboardLayout({
     user.user_metadata.full_name?.trim() || user.email?.split("@")[0] || null;
 
   return (
-    <div className="flex flex-1">
+    <div className="flex min-h-dvh flex-1">
       <DashboardNav userName={displayName} onSignOutSlot={<SignOutButton />} />
 
       <div className="flex min-w-0 flex-1 flex-col">
