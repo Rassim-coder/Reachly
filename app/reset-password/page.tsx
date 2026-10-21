@@ -1,16 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { APP_NAME } from "@/lib/constants";
 
 import { ResetPasswordScreen } from "./reset-password-screen";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 /**
  * The page reads the recovery session from cookies, so it must be allowed to
@@ -32,7 +25,5 @@ export const metadata: Metadata = {
 export default async function ResetPasswordPage() {
   const user = await getCurrentUser();
 
-  return (
-    <ResetPasswordScreen email={user?.email ?? null} className={inter.className} />
-  );
+  return <ResetPasswordScreen email={user?.email ?? null} />;
 }

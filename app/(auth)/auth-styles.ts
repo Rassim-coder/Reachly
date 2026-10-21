@@ -12,7 +12,7 @@ export const AUTH_STYLES = `
 }
 
 .rl-auth {
-  --rl-brand-gradient: linear-gradient(135deg, #7C4DFF 0%, #6D3FF0 40%, #0A8FE0 100%);
+  --auth-gradient: linear-gradient(135deg, #7C4DFF 0%, #6D3FF0 40%, #0A8FE0 100%);
   min-height: 100vh;
   min-height: 100dvh;
   font-size: 13px;
@@ -22,44 +22,44 @@ export const AUTH_STYLES = `
 }
 
 .rl-auth[data-theme="dark"] {
-  --rl-page: #0D0F16;
-  --rl-card: #151822;
-  --rl-border: #232736;
-  --rl-input-bg: #1B1F2C;
-  --rl-text: #F3F4F8;
-  --rl-secondary: #9AA1B2;
-  --rl-muted: #6B7280;
-  --rl-primary: #8B6BFF;
-  --rl-primary-tint: #231D4A;
-  --rl-blue: #0A8FE0;
-  --rl-success: #16A34A;
-  --rl-success-bg: #12301F;
-  --rl-error: #DC2626;
-  --rl-error-bg: #2A1416;
-  --rl-card-shadow: none;
+  --auth-page: #0D0F16;
+  --auth-card: #151822;
+  --auth-border: #232736;
+  --auth-input-bg: #1B1F2C;
+  --auth-text: #F3F4F8;
+  --auth-secondary: #9AA1B2;
+  --auth-muted: #6B7280;
+  --auth-primary: #8B6BFF;
+  --auth-primary-tint: #231D4A;
+  --auth-blue: #0A8FE0;
+  --auth-success: #16A34A;
+  --auth-success-bg: #12301F;
+  --auth-error: #DC2626;
+  --auth-error-bg: #2A1416;
+  --auth-card-shadow: none;
 }
 
 .rl-auth[data-theme="light"] {
-  --rl-page: #F7F8FB;
-  --rl-card: #FFFFFF;
-  --rl-border: #E8EAF0;
-  --rl-input-bg: #F3F4F8;
-  --rl-text: #111827;
-  --rl-secondary: #6B7280;
-  --rl-muted: #9CA3AF;
-  --rl-primary: #6D3FF0;
-  --rl-primary-tint: #EEEAFE;
-  --rl-blue: #0A8FE0;
-  --rl-success: #16A34A;
-  --rl-success-bg: #E8F7EE;
-  --rl-error: #DC2626;
-  --rl-error-bg: #FEF2F2;
-  --rl-card-shadow: 0 1px 3px rgba(16, 24, 40, .06);
+  --auth-page: #F7F8FB;
+  --auth-card: #FFFFFF;
+  --auth-border: #E8EAF0;
+  --auth-input-bg: #F3F4F8;
+  --auth-text: #111827;
+  --auth-secondary: #6B7280;
+  --auth-muted: #9CA3AF;
+  --auth-primary: #6D3FF0;
+  --auth-primary-tint: #EEEAFE;
+  --auth-blue: #0A8FE0;
+  --auth-success: #16A34A;
+  --auth-success-bg: #E8F7EE;
+  --auth-error: #DC2626;
+  --auth-error-bg: #FEF2F2;
+  --auth-card-shadow: 0 1px 3px rgba(16, 24, 40, .06);
 }
 
 .rl-auth {
-  background: var(--rl-page);
-  color: var(--rl-text);
+  background: var(--auth-page);
+  color: var(--auth-text);
 }
 
 .rl-grid {
@@ -81,7 +81,7 @@ export const AUTH_STYLES = `
   margin: 14px 0 14px 14px;
   padding: 36px 44px;
   border-radius: 20px;
-  background: var(--rl-brand-gradient);
+  background: var(--auth-gradient);
   color: #fff;
 }
 
@@ -262,7 +262,7 @@ export const AUTH_STYLES = `
   display: none;
   align-items: center;
   gap: 8px;
-  color: var(--rl-primary);
+  color: var(--auth-primary);
   font-size: 14px;
   font-weight: 600;
 }
@@ -274,7 +274,7 @@ export const AUTH_STYLES = `
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: var(--rl-brand-gradient);
+  background: var(--auth-gradient);
   color: #fff;
 }
 
@@ -284,17 +284,17 @@ export const AUTH_STYLES = `
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--rl-border);
+  border: 1px solid var(--auth-border);
   border-radius: 999px;
-  background: var(--rl-card);
-  color: var(--rl-secondary);
+  background: var(--auth-card);
+  color: var(--auth-secondary);
   cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease;
 }
 
 .rl-toggle:hover {
-  background: var(--rl-input-bg);
-  color: var(--rl-text);
+  background: var(--auth-input-bg);
+  color: var(--auth-text);
 }
 
 .rl-center {
@@ -309,7 +309,7 @@ export const AUTH_STYLES = `
   padding: 0 20px 14px;
   text-align: center;
   font-size: 11px;
-  color: var(--rl-muted);
+  color: var(--auth-muted);
 }
 
 /* ---------------- Card ---------------- */
@@ -321,10 +321,10 @@ export const AUTH_STYLES = `
   width: 100%;
   max-width: 400px;
   padding: 26px;
-  border: 1px solid var(--rl-border);
+  border: 1px solid var(--auth-border);
   border-radius: 16px;
-  background: var(--rl-card);
-  box-shadow: var(--rl-card-shadow);
+  background: var(--auth-card);
+  box-shadow: var(--auth-card-shadow);
 }
 
 .rl-title {
@@ -336,7 +336,7 @@ export const AUTH_STYLES = `
 .rl-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--rl-secondary);
+  color: var(--auth-secondary);
 }
 
 .rl-seg {
@@ -345,7 +345,7 @@ export const AUTH_STYLES = `
   gap: 0;
   padding: 3px;
   border-radius: 999px;
-  background: var(--rl-input-bg);
+  background: var(--auth-input-bg);
 }
 
 .rl-seg-btn {
@@ -353,7 +353,7 @@ export const AUTH_STYLES = `
   border-radius: 999px;
   padding: 7px 0;
   background: transparent;
-  color: var(--rl-secondary);
+  color: var(--auth-secondary);
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -362,12 +362,12 @@ export const AUTH_STYLES = `
 }
 
 .rl-seg-btn:hover {
-  color: var(--rl-text);
+  color: var(--auth-text);
 }
 
 .rl-seg-btn.rl-seg-active {
-  background: var(--rl-card);
-  color: var(--rl-text);
+  background: var(--auth-card);
+  color: var(--auth-text);
   box-shadow: 0 1px 2px rgba(0, 0, 0, .18);
 }
 
@@ -386,18 +386,18 @@ export const AUTH_STYLES = `
 }
 
 .rl-banner-success {
-  background: var(--rl-success-bg);
-  color: var(--rl-success);
+  background: var(--auth-success-bg);
+  color: var(--auth-success);
 }
 
 .rl-banner-info {
-  background: var(--rl-primary-tint);
-  color: var(--rl-primary);
+  background: var(--auth-primary-tint);
+  color: var(--auth-primary);
 }
 
 .rl-banner-error {
-  background: var(--rl-error-bg);
-  color: var(--rl-error);
+  background: var(--auth-error-bg);
+  color: var(--auth-error);
 }
 
 .rl-fields {
@@ -411,7 +411,7 @@ export const AUTH_STYLES = `
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--rl-text);
+  color: var(--auth-text);
 }
 
 .rl-field {
@@ -422,10 +422,10 @@ export const AUTH_STYLES = `
   width: 100%;
   height: 40px;
   padding: 0 12px 0 36px;
-  border: 1px solid var(--rl-border);
+  border: 1px solid var(--auth-border);
   border-radius: 10px;
-  background: var(--rl-input-bg);
-  color: var(--rl-text);
+  background: var(--auth-input-bg);
+  color: var(--auth-text);
   font-family: inherit;
   font-size: 13px;
   transition: border-color 150ms ease, background-color 150ms ease,
@@ -433,18 +433,18 @@ export const AUTH_STYLES = `
 }
 
 .rl-input::placeholder {
-  color: var(--rl-muted);
+  color: var(--auth-muted);
 }
 
 .rl-input:focus {
   outline: none;
-  border-color: var(--rl-primary);
-  background: var(--rl-card);
-  box-shadow: 0 0 0 3px var(--rl-primary-tint);
+  border-color: var(--auth-primary);
+  background: var(--auth-card);
+  box-shadow: 0 0 0 3px var(--auth-primary-tint);
 }
 
 .rl-input.rl-input-error {
-  border-color: var(--rl-error);
+  border-color: var(--auth-error);
 }
 
 .rl-input.rl-input-password {
@@ -457,7 +457,7 @@ export const AUTH_STYLES = `
   top: 50%;
   transform: translateY(-50%);
   display: flex;
-  color: var(--rl-muted);
+  color: var(--auth-muted);
   pointer-events: none;
 }
 
@@ -474,19 +474,19 @@ export const AUTH_STYLES = `
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--rl-muted);
+  color: var(--auth-muted);
   cursor: pointer;
   transition: color 150ms ease;
 }
 
 .rl-eye:hover {
-  color: var(--rl-text);
+  color: var(--auth-text);
 }
 
 .rl-field-error {
   margin-top: 4px;
   font-size: 11px;
-  color: var(--rl-error);
+  color: var(--auth-error);
 }
 
 .rl-row {
@@ -501,21 +501,21 @@ export const AUTH_STYLES = `
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--rl-secondary);
+  color: var(--auth-secondary);
   cursor: pointer;
 }
 
 .rl-check input {
   width: 15px;
   height: 15px;
-  accent-color: var(--rl-primary);
+  accent-color: var(--auth-primary);
 }
 
 .rl-link {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--rl-primary);
+  color: var(--auth-primary);
   font-family: inherit;
   font-size: inherit;
   font-weight: 500;
@@ -577,7 +577,7 @@ export const AUTH_STYLES = `
 .rl-switch {
   text-align: center;
   font-size: 13px;
-  color: var(--rl-secondary);
+  color: var(--auth-secondary);
 }
 
 /* Standalone screens (password reset) use the brand row inside the card. */
@@ -586,7 +586,7 @@ export const AUTH_STYLES = `
   display: flex;
   align-items: center;
   gap: 9px;
-  color: var(--rl-primary);
+  color: var(--auth-primary);
   font-size: 14px;
   font-weight: 600;
 }
@@ -596,7 +596,7 @@ export const AUTH_STYLES = `
 .rl-auth a:focus-visible,
 .rl-auth button:focus-visible,
 .rl-auth .rl-check input:focus-visible {
-  outline: 2px solid var(--rl-primary);
+  outline: 2px solid var(--auth-primary);
   outline-offset: 2px;
 }
 

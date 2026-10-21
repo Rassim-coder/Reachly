@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { themeInitScript } from "@/lib/theme";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/**
+ * Inter is the app-wide typeface, matching
+ * `reference/Reachly Dashboard (1).html`. It is loaded once here and exposed as
+ * a CSS variable, so no route loads its own copy.
+ */
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -23,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
       // The theme script below writes `data-theme` on <html> before React
       // hydrates, so the client DOM intentionally differs from the server
       // markup. React keeps the DOM value instead of reporting a mismatch.

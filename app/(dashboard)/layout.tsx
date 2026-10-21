@@ -1,4 +1,3 @@
-import { Inter } from "next/font/google";
 import { redirect } from "next/navigation";
 
 import { DashboardHeader } from "@/components/layout/dashboard-header";
@@ -11,12 +10,6 @@ import { getCurrentUser } from "@/lib/auth/session";
  * to block instead of being prerendered (Next.js 16 cache components).
  */
 export const instant = false;
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 /**
  * Authenticated dashboard shell.
@@ -44,7 +37,7 @@ export default async function DashboardLayout({
     user.user_metadata.full_name?.trim() || user.email?.split("@")[0] || null;
 
   return (
-    <div className={`flex flex-1 ${inter.className}`}>
+    <div className="flex flex-1">
       <DashboardNav userName={displayName} onSignOutSlot={<SignOutButton />} />
 
       <div className="flex min-w-0 flex-1 flex-col">

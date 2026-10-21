@@ -76,11 +76,19 @@
   --color-field: var(--rl-input);
 
   --shadow-card: var(--rl-sh);
+
+  /*
+   * Inter is loaded once in `app/layout.tsx` and exposed as `--font-sans`.
+   * The reference uses Inter throughout, including for code-style keys such as
+   * the header's ⌘K hint.
+   */
+  --font-sans: var(--font-sans), system-ui, sans-serif;
 }
 
 body {
   background: var(--rl-bg);
   color: var(--rl-tx);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 

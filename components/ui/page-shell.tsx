@@ -86,7 +86,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-line p-4">
+    <div className="rounded-xl border border-line bg-field p-4">
       <p className="text-[13px] font-medium">{title}</p>
       <p className="mt-1 text-[12px] text-muted">{description}</p>
 
