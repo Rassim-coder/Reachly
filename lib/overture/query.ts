@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { join } from "node:path";
 
 import type { Database as DuckDbDatabase, Connection } from "duckdb-async";
 
@@ -424,10 +425,15 @@ async function fetchPlaces(
  * `node-pre-gyp` metadata ("missing field `napi_versions`") for this package;
  * loading it at runtime keeps the native binding outside the bundle. The
  * package is listed in `serverExternalPackages` as well.
+ *
+ * IMPORTANT: do not use `__filename` (or `import.meta.url`) as the require
+ * base. Turbopack rewrites module paths to its virtual project root, producing
+ * `createRequire("/ROOT/lib/overture/query.ts")` in the server chunk. That
+ * path does not exist on disk, so `require("duckdb-async")` fails with
+ * "Cannot find module". `process.cwd()` is the real Next.js project root for
+ * both `next dev` and `next start`, and node_modules resolves from there.
  */
-const requireNative = createRequire(
-  typeof __filename === "string" ? __filename : `${process.cwd()}/index.js`,
-);
+const requireNative = createRequire(join(process.cwd(), "package.json"));
 let duckdbModule: typeof import("duckdb-async") | null = null;
 
 function loadDuckDb(): typeof import("duckdb-async") {

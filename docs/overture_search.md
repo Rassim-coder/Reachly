@@ -38,7 +38,7 @@ Critical release note: Overture keeps only a rolling window of releases. The ori
 
 ### Runtime integration notes
 
-- `duckdb-async` and `duckdb` are listed in `serverExternalPackages`. The module is loaded through `createRequire(__filename)` because Turbopack 16.4 panics while tracing the `duckdb` package's `node-pre-gyp` metadata (`missing field napi_versions`). With this approach the Turbopack production build succeeds and Tailwind processing is preserved.
+- `duckdb-async` and `duckdb` are listed in `serverExternalPackages`. The module is loaded through `createRequire(join(process.cwd(), "package.json"))` because Turbopack 16.4 panics while tracing the `duckdb` package's `node-pre-gyp` metadata (`missing field napi_versions`). The require base must be a real filesystem path: Turbopack rewrites `__filename` to its virtual `/ROOT/...` module path, which caused `Cannot find module 'duckdb-async'` at runtime. With this approach the Turbopack production build succeeds and Tailwind processing is preserved.
 - One in-memory DuckDB database is shared per process; each search opens its own connection, and searches are serialized to reuse the warmed S3 metadata cache.
 - A 120-second application-level timeout returns a `504`; it is not a hosting-platform guarantee. Serverless compatibility, memory use under load, and concurrency have not been verified.
 
