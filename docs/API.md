@@ -84,6 +84,15 @@ The exact request fields may need to expand to support filters or pagination.
 
 ## 3. Saved Leads
 
+### Current implementation — server actions
+
+Saving is implemented with authenticated Server Actions in `features/leads/actions.ts`, not with the HTTP endpoints below:
+
+- `saveBusinessAsLead(business)` saves one search result.
+- `saveBusinessesAsLeads(businesses)` saves an explicit user selection (up to 500 per request, chunked server-side).
+
+Both actions derive the user from the session, re-validate every field, upsert `businesses` on `unique (source, source_id)`, and rely on `unique (user_id, business_id)` for duplicate prevention. The service-role client is used only on the server because `businesses` has no client write policy. The bulk action reports added, already-existing, and failed counts separately; failures keep the selection available for retry. No RLS policy is bypassed for user-owned data.
+
 ### Proposed endpoint
 
 `GET /api/leads`

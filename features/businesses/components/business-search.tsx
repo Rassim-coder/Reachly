@@ -1,9 +1,16 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { SearchIcon } from "@/components/ui/icons";
+import { BookmarkIcon, SearchIcon } from "@/components/ui/icons";
 import { Card, CardHeader, EmptyState } from "@/components/ui/page-shell";
+import {
+  filterLoadedBusinesses,
+  hasActiveFilters,
+  type PresenceFilter,
+  type ResultFilters,
+} from "@/features/businesses/result-filters";
+import { saveBusinessesAsLeads, type BulkSaveLeadsResult } from "@/features/leads/actions";
 import type {
   ApiError,
   BusinessSearchResponse,
@@ -31,6 +38,9 @@ type SearchState =
 const inputClasses =
   "h-[38px] w-full rounded-xl border border-line bg-field px-3 text-[13px] text-foreground placeholder:text-faint focus:border-[#6d3ff0] focus:outline-none";
 
+const selectClasses =
+  "h-[34px] rounded-lg border border-line bg-surface px-2 text-[12px] text-foreground focus:border-[#6d3ff0] focus:outline-none";
+
 function displayWebsite(website: string): string {
   return website.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
 }
@@ -39,23 +49,121 @@ function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
 }
 
+function PresenceFilterSelect({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: PresenceFilter;
+  onChange: (value: PresenceFilter) => void;
+}) {
+  return (
+    <label htmlFor={id} className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium text-muted">{label}</span>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value as PresenceFilter)}
+        className={selectClasses}
+      >
+        <option value="all">All</option>
+        <option value="has">Has {label.toLowerCase()}</option>
+        <option value="none">No {label.toLowerCase()}</option>
+      </select>
+    </label>
+  );
+}
+
 /**
  * Live Overture business search. Calls `POST /api/businesses/search`; nothing
- * is cached or persisted until the user saves a specific result as a lead.
+ * is cached or persisted until the user saves a business as a lead (individually
+ * or through the bulk selection toolbar).
  */
 export function BusinessSearch() {
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
   const [state, setState] = useState<SearchState>({ status: "idle" });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [websiteFilter, setWebsiteFilter] = useState<PresenceFilter>("all");
+  const [phoneFilter, setPhoneFilter] = useState<PresenceFilter>("all");
+  const [emailFilter, setEmailFilter] = useState<PresenceFilter>("all");
+  const [bulkPending, setBulkPending] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkSaveLeadsResult | null>(null);
   const moreInFlight = useRef(false);
+  const bulkInFlight = useRef(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   const loading = state.status === "loading";
   const loadingMore = state.status === "success" && state.loadingMore;
+  const loadedResults = state.status === "success" ? state.results : [];
+  const filters: ResultFilters = {
+    website: websiteFilter,
+    phone: phoneFilter,
+    email: emailFilter,
+  };
+  const filtersActive = hasActiveFilters(filters);
+
+  const visibleResults = filterLoadedBusinesses(loadedResults, filters);
+
+  const allLoadedSelected =
+    loadedResults.length > 0 &&
+    loadedResults.every((business) => selectedIds.has(business.sourceId));
+  const someLoadedSelected = loadedResults.some((business) =>
+    selectedIds.has(business.sourceId),
+  );
+  const visibleSelectedCount = visibleResults.filter((business) =>
+    selectedIds.has(business.sourceId),
+  ).length;
+  const hiddenSelectedCount = selectedIds.size - visibleSelectedCount;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someLoadedSelected && !allLoadedSelected;
+    }
+  }, [someLoadedSelected, allLoadedSelected]);
+
+  function clearFilters() {
+    setWebsiteFilter("all");
+    setPhoneFilter("all");
+    setEmailFilter("all");
+  }
+
+  function toggleSelection(sourceId: string) {
+    setBulkResult(null);
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(sourceId)) {
+        next.delete(sourceId);
+      } else {
+        next.add(sourceId);
+      }
+
+      return next;
+    });
+  }
+
+  function handleSelectAll() {
+    setBulkResult(null);
+    setSelectedIds(() => {
+      if (allLoadedSelected) return new Set<string>();
+
+      return new Set(loadedResults.map((business) => business.sourceId));
+    });
+  }
+
+  function clearSelection() {
+    setBulkResult(null);
+    setSelectedIds(new Set());
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (loadingMore) return;
+    if (loadingMore || bulkPending) return;
 
     if (niche.trim() === "" || location.trim() === "") {
       setState({
@@ -103,6 +211,9 @@ export function BusinessSearch() {
         return;
       }
 
+      // A new result set invalidates selections from the previous search.
+      setSelectedIds(new Set());
+      setBulkResult(null);
       setState({
         status: "success",
         query,
@@ -121,7 +232,12 @@ export function BusinessSearch() {
   }
 
   async function handleLoadMore() {
-    if (state.status !== "success" || !state.nextCursor || moreInFlight.current) {
+    if (
+      state.status !== "success" ||
+      !state.nextCursor ||
+      moreInFlight.current ||
+      bulkPending
+    ) {
       return;
     }
 
@@ -207,6 +323,39 @@ export function BusinessSearch() {
     }
   }
 
+  async function handleBulkSave() {
+    if (bulkInFlight.current || selectedIds.size === 0) return;
+
+    const selectedBusinesses = loadedResults.filter((business) =>
+      selectedIds.has(business.sourceId),
+    );
+
+    if (selectedBusinesses.length === 0) return;
+
+    bulkInFlight.current = true;
+    setBulkPending(true);
+    setBulkResult(null);
+
+    try {
+      const result = await saveBusinessesAsLeads(selectedBusinesses);
+      setBulkResult(result);
+
+      // Keep failed items selected so the user can retry exactly those.
+      if (result.ok && result.failed === 0) {
+        setSelectedIds(new Set());
+      }
+    } catch {
+      setBulkResult({
+        ok: false,
+        message:
+          "Could not save the selected businesses. Check your connection and try again.",
+      });
+    } finally {
+      bulkInFlight.current = false;
+      setBulkPending(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -249,7 +398,7 @@ export function BusinessSearch() {
 
             <button
               type="submit"
-              disabled={loading || loadingMore}
+              disabled={loading || loadingMore || bulkPending}
               className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-4 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] disabled:opacity-60"
             >
               <SearchIcon size={15} />
@@ -268,7 +417,7 @@ export function BusinessSearch() {
         <Card>
           <EmptyState
             title="Search real businesses"
-            description="Enter a niche and a location to pull businesses from Overture Maps. Nothing is saved until you choose Save lead."
+            description="Enter a niche and a location to pull businesses from Overture Maps. Nothing is saved until you save a lead or add selected businesses to My Leads."
           />
         </Card>
       ) : null}
@@ -308,74 +457,217 @@ export function BusinessSearch() {
       {state.status === "success" && state.results.length > 0 ? (
         <Card>
           <CardHeader
-            title={`${state.results.length} ${
-              state.results.length === 1 ? "business" : "businesses"
-            } loaded`}
+            title={
+              filtersActive
+                ? `${visibleResults.length} of ${loadedResults.length} loaded visible`
+                : `${loadedResults.length} ${
+                    loadedResults.length === 1 ? "business" : "businesses"
+                  } loaded`
+            }
             description={`First batch returned in ${(state.firstElapsedMs / 1000).toFixed(
               1,
-            )}s. Results load 50 at a time; totals are not estimated.`}
+            )}s. Loaded results only; total matches are not estimated.${
+              filtersActive ? " Filters apply to loaded businesses." : ""
+            }`}
           />
 
-          <ul className="divide-y divide-line">
-            {state.results.map((business) => (
-              <li
-                key={business.sourceId}
-                className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+          <div className="mb-3 flex flex-wrap items-end gap-2 rounded-xl border border-line bg-field px-3 py-2.5">
+            <PresenceFilterSelect
+              id="filter-website"
+              label="Website"
+              value={websiteFilter}
+              onChange={setWebsiteFilter}
+            />
+            <PresenceFilterSelect
+              id="filter-phone"
+              label="Phone"
+              value={phoneFilter}
+              onChange={setPhoneFilter}
+            />
+            <PresenceFilterSelect
+              id="filter-email"
+              label="Email"
+              value={emailFilter}
+              onChange={setEmailFilter}
+            />
+
+            <span className="pb-2 text-[11px] text-faint">
+              {visibleResults.length} of {loadedResults.length} loaded visible
+            </span>
+
+            {filtersActive ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="h-[34px] rounded-lg border border-line px-3 text-[12px] font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
               >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-[13px] font-semibold">{business.name}</p>
-                    {business.category ? (
-                      <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">
-                        {business.category.replaceAll("_", " ")}
-                      </span>
-                    ) : null}
+                Clear filters
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mb-3 flex flex-col gap-2 rounded-xl border border-line bg-field px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex items-center gap-2 text-[12px] font-medium">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                checked={allLoadedSelected}
+                onChange={handleSelectAll}
+                disabled={bulkPending}
+                className="h-4 w-4 accent-[#6d3ff0]"
+              />
+              Select all loaded ({loadedResults.length})
+            </label>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[12px] text-muted" aria-live="polite">
+                {selectedIds.size} selected
+                {hiddenSelectedCount > 0
+                  ? ` (${hiddenSelectedCount} hidden by filters)`
+                  : ""}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleBulkSave}
+                disabled={bulkPending || selectedIds.size === 0}
+                className="flex h-[32px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-3 text-[12px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] disabled:opacity-60"
+              >
+                <BookmarkIcon size={14} />
+                {bulkPending ? "Adding…" : "Add to My Leads"}
+              </button>
+
+              {selectedIds.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  disabled={bulkPending}
+                  className="h-[32px] rounded-xl border border-line px-3 text-[12px] font-medium text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-60"
+                >
+                  Clear selection
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {bulkResult ? (
+            <div
+              aria-live="polite"
+              className={`mb-3 rounded-xl border px-3 py-2 text-[12px] ${
+                !bulkResult.ok
+                  ? "border-red-500/40 bg-red-500/10 text-red-300"
+                  : bulkResult.failed > 0
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                    : "border-line bg-field text-muted"
+              }`}
+            >
+              {bulkResult.ok ? (
+                <>
+                  <p className="font-medium text-foreground">Bulk save finished</p>
+                  <p>
+                    Added: {bulkResult.added} · Already existed:{" "}
+                    {bulkResult.existing} · Failed: {bulkResult.failed}
+                  </p>
+                  {bulkResult.failed > 0 ? (
+                    <p className="mt-0.5">
+                      Selection was kept so you can retry. Saving again will not
+                      duplicate leads.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p role="alert">{bulkResult.message}</p>
+              )}
+            </div>
+          ) : null}
+
+          {visibleResults.length === 0 ? (
+            <EmptyState
+              title="No loaded businesses match these filters"
+              description={`None of the ${loadedResults.length} loaded businesses match the current filter combination. Selections are preserved when filters change.`}
+              action={
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-3 h-[32px] rounded-lg border border-line px-3 text-[12px] font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
+                >
+                  Clear filters
+                </button>
+              }
+            />
+          ) : (
+            <ul className="divide-y divide-line">
+              {visibleResults.map((business) => (
+                <li
+                  key={business.sourceId}
+                  className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                >
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(business.sourceId)}
+                      onChange={() => toggleSelection(business.sourceId)}
+                      disabled={bulkPending}
+                      aria-label={`Select ${business.name}`}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#6d3ff0]"
+                    />
+
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[13px] font-semibold">{business.name}</p>
+                        {business.category ? (
+                          <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">
+                            {business.category.replaceAll("_", " ")}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
+                        {business.address ? <dd>{business.address}</dd> : null}
+
+                        {business.phone ? (
+                          <dd>
+                            <a href={`tel:${business.phone}`} className="hover:underline">
+                              {business.phone}
+                            </a>
+                          </dd>
+                        ) : null}
+
+                        {business.email ? (
+                          <dd>
+                            <a href={`mailto:${business.email}`} className="hover:underline">
+                              {business.email}
+                            </a>
+                          </dd>
+                        ) : null}
+
+                        {business.website ? (
+                          <dd className="truncate">
+                            {isHttpUrl(business.website) ? (
+                              <a
+                                href={business.website}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hover:underline"
+                              >
+                                {displayWebsite(business.website)}
+                              </a>
+                            ) : (
+                              displayWebsite(business.website)
+                            )}
+                          </dd>
+                        ) : null}
+                      </dl>
+                    </div>
                   </div>
 
-                  <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
-                    {business.address ? <dd>{business.address}</dd> : null}
-
-                    {business.phone ? (
-                      <dd>
-                        <a href={`tel:${business.phone}`} className="hover:underline">
-                          {business.phone}
-                        </a>
-                      </dd>
-                    ) : null}
-
-                    {business.email ? (
-                      <dd>
-                        <a href={`mailto:${business.email}`} className="hover:underline">
-                          {business.email}
-                        </a>
-                      </dd>
-                    ) : null}
-
-                    {business.website ? (
-                      <dd className="truncate">
-                        {isHttpUrl(business.website) ? (
-                          <a
-                            href={business.website}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="hover:underline"
-                          >
-                            {displayWebsite(business.website)}
-                          </a>
-                        ) : (
-                          displayWebsite(business.website)
-                        )}
-                      </dd>
-                    ) : null}
-                  </dl>
-                </div>
-
-                <div className="shrink-0 sm:self-center">
-                  <SaveLeadButton business={business} />
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <div className="shrink-0 sm:self-center">
+                    <SaveLeadButton business={business} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div
             aria-live="polite"
@@ -392,7 +684,7 @@ export function BusinessSearch() {
                 <button
                   type="button"
                   onClick={handleLoadMore}
-                  disabled={state.loadingMore}
+                  disabled={state.loadingMore || bulkPending}
                   className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-line bg-field px-4 text-[13px] font-medium text-foreground hover:border-[#6d3ff0] disabled:opacity-60"
                 >
                   {state.loadingMore ? "Loading more…" : "Load more"}

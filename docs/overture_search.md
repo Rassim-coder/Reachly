@@ -96,7 +96,7 @@ Verify the actual field names and availability before implementing normalization
 
 - Search results are transient.
 - Do not bulk-import every search result into Supabase.
-- Persist a business when the user saves it as a lead.
+- Persist a business only when the user explicitly saves it as a lead (individually or as part of a bulk selection).
 - Preserve a stable source identifier when the source provides one.
 - Decide how to handle records with missing identifiers.
 - Follow the approved business upsert and duplicate-lead rules.
