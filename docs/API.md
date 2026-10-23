@@ -2,15 +2,17 @@
 
 ## 1. Status
 
-These contracts are proposed. Do not assume any endpoint exists until it has been implemented and verified.
+These contracts are proposed unless an endpoint is explicitly marked **implemented**. Do not assume an endpoint exists until it has been implemented and verified.
 
 The exact route names may change during implementation, but the frontend and backend must agree on request and response types.
 
 ## 2. Business Search
 
-### Proposed endpoint
+### Endpoint — implemented
 
 `POST /api/businesses/search`
+
+This is the single canonical search endpoint. `/api/search` does not exist.
 
 ### Request
 
@@ -21,7 +23,9 @@ The exact route names may change during implementation, but the frontend and bac
 }
 ```
 
-### Proposed response
+`location` must be `"City, Country"` (split on the last comma). Niche is limited to 100 characters and location to 120.
+
+### Response
 
 ```json
 {
@@ -42,7 +46,15 @@ The exact route names may change during implementation, but the frontend and bac
 }
 ```
 
-The example business is illustrative, not a real search result.
+The example business is illustrative, not a real search result. Rows without a business name are dropped; optional values are `null`, never invented.
+
+### Current behavior (verified 2026-10-23)
+
+- Maximum 50 results per search; `nextCursor` is always `null` (pagination not implemented).
+- Success returns real Overture release `2026-10-21.0` records (`taxonomy.primary`); a JSON header `X-Overture-Release` echoes the pinned release.
+- Validation failures return `400 VALIDATION_ERROR`; an unknown city returns `404 NOT_FOUND`; timeouts return `504 SEARCH_FAILED`; other query failures return `500 SEARCH_FAILED`.
+- `/api/*` is session-protected by `proxy.ts`, so an unauthenticated request receives a `307` redirect to `/login` rather than a JSON body.
+- Live search is slow (~15–50 s observed); the API applies a 120-second application timeout, which is not a hosting-platform guarantee.
 
 ### Requirements
 

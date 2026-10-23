@@ -1,17 +1,14 @@
-import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
+import { PageHeader, DashboardPage } from "@/components/ui/page-shell";
+import { BusinessSearch } from "@/features/businesses/components/business-search";
 
 export default function FindBusinessesPage() {
   return (
     <DashboardPage>
-      <PendingFeature
+      <PageHeader
         title="Find Businesses"
-        description="Search for businesses by niche and location."
-        planned={[
-          "Server-side Overture search through DuckDB.",
-          "Normalized business results with nullable contact details.",
-          "Save a business as a personal lead.",
-        ]}
+        description="Search real businesses from Overture Maps by niche and location."
       />
+      <BusinessSearch />
     </DashboardPage>
   );
 }

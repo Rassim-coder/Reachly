@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Temporary, read-only prototype reference. Not part of the Reachly app.
+    "reference/**",
   ]),
 ]);
 
