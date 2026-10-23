@@ -6,6 +6,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { NormalizedBusiness } from "@/types/api";
 
+import {
+  collectBusinessesForBulkSave,
+  toBusinessRow,
+  validateBusinessInput,
+} from "./validation";
+
 /**
  * Save a discovered business as the signed-in user's lead.
  *
@@ -23,114 +29,10 @@ export type BulkSaveLeadsResult =
   | { ok: true; added: number; existing: number; failed: number; total: number }
   | { ok: false; message: string };
 
-const MAX_NAME_LENGTH = 300;
-const MAX_SOURCE_ID_LENGTH = 200;
-const MAX_TEXT_LENGTH = 500;
 /** Upper bound per bulk request; the client selects from results it has loaded. */
 const MAX_BULK_SAVE = 500;
 /** Keeps each upsert statement small so one bad row cannot fail an entire selection. */
 const BULK_CHUNK_SIZE = 50;
-
-type CleanBusiness = {
-  sourceId: string;
-  name: string;
-  category: string | null;
-  address: string | null;
-  phone: string | null;
-  website: string | null;
-  email: string | null;
-  latitude: number | null;
-  longitude: number | null;
-};
-
-type CleanBusinessResult =
-  | { ok: true; value: CleanBusiness }
-  | { ok: false; message: string };
-
-/** Returns `null` for empty values and `undefined` for invalid input. */
-function cleanText(value: unknown, maxLength: number): string | null | undefined {
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "string") return undefined;
-
-  const trimmed = value.trim();
-  if (trimmed === "") return null;
-  if (trimmed.length > maxLength) return undefined;
-
-  return trimmed;
-}
-
-function cleanCoordinate(
-  value: unknown,
-  maxAbsolute: number,
-): number | null | undefined {
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-  if (value < -maxAbsolute || value > maxAbsolute) return undefined;
-
-  return value;
-}
-
-/** Re-validate an untrusted business payload before it reaches the database. */
-function cleanBusiness(input: unknown): CleanBusinessResult {
-  if (typeof input !== "object" || input === null) {
-    return { ok: false, message: "The business details are invalid." };
-  }
-
-  const candidate = input as Record<string, unknown>;
-  const sourceId = cleanText(candidate.sourceId, MAX_SOURCE_ID_LENGTH);
-  const name = cleanText(candidate.name, MAX_NAME_LENGTH);
-
-  if (!sourceId || !name) {
-    return { ok: false, message: "The business is missing a source id or name." };
-  }
-
-  const category = cleanText(candidate.category, MAX_TEXT_LENGTH);
-  const address = cleanText(candidate.address, MAX_TEXT_LENGTH);
-  const phone = cleanText(candidate.phone, MAX_TEXT_LENGTH);
-  const website = cleanText(candidate.website, MAX_TEXT_LENGTH);
-  const email = cleanText(candidate.email, MAX_TEXT_LENGTH);
-  const latitude = cleanCoordinate(candidate.latitude, 90);
-  const longitude = cleanCoordinate(candidate.longitude, 180);
-
-  if (
-    [category, address, phone, website, email, latitude, longitude].some(
-      (value) => value === undefined,
-    )
-  ) {
-    return { ok: false, message: "The business details are invalid." };
-  }
-
-  return {
-    ok: true,
-    value: {
-      sourceId,
-      name,
-      category: category ?? null,
-      address: address ?? null,
-      phone: phone ?? null,
-      website: website ?? null,
-      email: email ?? null,
-      latitude: latitude ?? null,
-      longitude: longitude ?? null,
-    },
-  };
-}
-
-function toBusinessRow(business: CleanBusiness) {
-  return {
-    source: "overture",
-    source_id: business.sourceId,
-    name: business.name,
-    category: business.category,
-    address: business.address,
-    city: null,
-    phone: business.phone,
-    website: business.website,
-    email: business.email,
-    latitude: business.latitude,
-    longitude: business.longitude,
-  };
-}
 
 export async function saveBusinessAsLead(
   input: NormalizedBusiness,
@@ -141,7 +43,7 @@ export async function saveBusinessAsLead(
     return { ok: false, message: "Sign in to save leads." };
   }
 
-  const cleaned = cleanBusiness(input);
+  const cleaned = validateBusinessInput(input);
 
   if (!cleaned.ok) {
     return { ok: false, message: cleaned.message };
@@ -231,27 +133,13 @@ export async function saveBusinessesAsLeads(
     };
   }
 
-  // Selection is keyed by source id, but dedupe again server-side so a
-  // malformed client payload cannot make one upsert statement conflict.
-  const unique = new Map<string, CleanBusiness>();
-  let failed = 0;
-
-  for (const input of inputs) {
-    const cleaned = cleanBusiness(input);
-
-    if (!cleaned.ok) {
-      failed += 1;
-      continue;
-    }
-
-    if (!unique.has(cleaned.value.sourceId)) {
-      unique.set(cleaned.value.sourceId, cleaned.value);
-    }
-  }
-
-  const businessesToSave = [...unique.values()];
+  const {
+    businesses: businessesToSave,
+    failed: invalidInputs,
+  } = collectBusinessesForBulkSave(inputs);
   let added = 0;
   let existing = 0;
+  let failed = invalidInputs;
 
   for (let start = 0; start < businessesToSave.length; start += BULK_CHUNK_SIZE) {
     const chunk = businessesToSave.slice(start, start + BULK_CHUNK_SIZE);
