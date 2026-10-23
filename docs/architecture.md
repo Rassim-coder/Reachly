@@ -37,7 +37,15 @@ Responsibilities:
 - Apply result limits and pagination.
 - Return consistent API responses.
 
-Search should run server-side. The implementation must be tested against the selected hosting runtime.
+Search runs server-side in `lib/overture/` (`query.ts`, `categories.ts`, `normalize.ts`) and is exposed only through `POST /api/businesses/search` (`app/api/businesses/search/route.ts`). That route is the single canonical search endpoint; there is no `/api/search`.
+
+Implementation status (verified):
+- Pinned Overture release: `2026-10-21.0`, using `taxonomy.primary`. The previously planned `2026-08-19.0` is no longer published and the September 2026 schema removed `categories`; no runtime fallback exists, and a schema check fails loudly on mismatch.
+- `duckdb-async` is loaded at runtime with `createRequire` and listed in `serverExternalPackages`, because Turbopack cannot trace the native `duckdb` package.
+- One in-memory DuckDB database is shared per process, each search gets its own connection, and searches are serialized. A 120-second application timeout does not guarantee hosting-platform support.
+- Result limit is 50 (`nextCursor` is always `null`; pagination is not implemented).
+
+Search should run server-side. The implementation must be tested against the selected hosting runtime; only a local Node process has been verified.
 
 ### Lead Management Service
 
@@ -166,7 +174,8 @@ reachly/
 │   │   ├── ai-assistant/page.tsx
 │   │   └── settings/page.tsx
 │   ├── api/
-│   │   ├── search/route.ts
+│   │   ├── businesses/
+│   │   │   └── search/route.ts
 │   │   ├── leads/route.ts
 │   │   └── ai/
 │   │       ├── qualify/route.ts

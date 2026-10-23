@@ -2,15 +2,17 @@
 
 ## 1. Status
 
-These contracts are proposed. Do not assume any endpoint exists until it has been implemented and verified.
+These contracts are proposed unless an endpoint is explicitly marked **implemented**. Do not assume an endpoint exists until it has been implemented and verified.
 
 The exact route names may change during implementation, but the frontend and backend must agree on request and response types.
 
 ## 2. Business Search
 
-### Proposed endpoint
+### Endpoint — implemented
 
 `POST /api/businesses/search`
+
+This is the single canonical search endpoint. `/api/search` does not exist.
 
 ### Request
 
@@ -21,7 +23,21 @@ The exact route names may change during implementation, but the frontend and bac
 }
 ```
 
-### Proposed response
+`location` must be `"City, Country"` (split on the last comma). Niche is limited to 100 characters and location to 120.
+
+Continuation requests send the same niche and location plus the opaque `cursor` returned by the previous response:
+
+```json
+{
+  "niche": "dentists",
+  "location": "Paris, France",
+  "cursor": "eyJ2IjoxLCJyIjoiMjAyNi0xMC0yMS4wIiwiYiI6Wy..."
+}
+```
+
+Cursors are server-issued, decoded and validated on the server, and rejected with `400 VALIDATION_ERROR` if malformed or issued for a different Overture release. They are not secret and carry no user data.
+
+### Response
 
 ```json
 {
@@ -42,7 +58,17 @@ The exact route names may change during implementation, but the frontend and bac
 }
 ```
 
-The example business is illustrative, not a real search result.
+The example business is illustrative, not a real search result. Rows without a business name are dropped; optional values are `null`, never invented. `nextCursor` is an opaque string when another batch may exist, or `null` when the last batch has been returned. The response never includes a total-match count.
+
+### Current behavior (verified 2026-10-23)
+
+- Each request returns at most 50 normalized results. `nextCursor` is non-null when Overture returned at least one row beyond the page; it is `null` once the final batch is reached.
+- Pagination uses keyset ordering on Overture's unique place `id` (`ORDER BY id`, `id > lastId`), so batches cannot overlap or skip rows even though the remote scan is parallel and unordered.
+- Continuation requests reuse the resolved bounding box and matched categories stored in the cursor. This skips the divisions lookup and the distinct-category scan; the remote places scan inside the bbox is still required for every batch.
+- Success returns real Overture release `2026-10-21.0` records (`taxonomy.primary`); a JSON header `X-Overture-Release` echoes the pinned release.
+- Validation failures return `400 VALIDATION_ERROR`; an unknown city returns `404 NOT_FOUND`; timeouts return `504 SEARCH_FAILED`; other query failures return `500 SEARCH_FAILED`.
+- `/api/*` is session-protected by `proxy.ts`, so an unauthenticated request receives a `307` redirect to `/login` rather than a JSON body.
+- Live search is slow (~4–66 s per batch observed); the API applies a 120-second application-level timeout per request, which is not a hosting-platform guarantee.
 
 ### Requirements
 
@@ -57,6 +83,15 @@ The example business is illustrative, not a real search result.
 The exact request fields may need to expand to support filters or pagination.
 
 ## 3. Saved Leads
+
+### Current implementation — server actions
+
+Saving is implemented with authenticated Server Actions in `features/leads/actions.ts`, not with the HTTP endpoints below:
+
+- `saveBusinessAsLead(business)` saves one search result.
+- `saveBusinessesAsLeads(businesses)` saves an explicit user selection (up to 500 per request, chunked server-side).
+
+Both actions derive the user from the session, re-validate every field, upsert `businesses` on `unique (source, source_id)`, and rely on `unique (user_id, business_id)` for duplicate prevention. The service-role client is used only on the server because `businesses` has no client write policy. The bulk action reports added, already-existing, and failed counts separately; failures keep the selection available for retry. No RLS policy is bypassed for user-owned data.
 
 ### Proposed endpoint
 

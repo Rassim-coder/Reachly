@@ -85,11 +85,16 @@ When running the local stack, use the local API URL and keys printed by
 ## 5. Run the app
 
 ```bash
-pnpm dev     # http://localhost:3000
-pnpm build   # production build (also runs the type check)
-pnpm start   # serve the production build
-pnpm lint    # ESLint
+pnpm dev        # http://localhost:3000
+pnpm build      # production build (also runs the type check)
+pnpm start      # serve the production build
+pnpm lint       # ESLint
+pnpm typecheck  # tsc --noEmit
+pnpm test       # unit tests (offline; no database required)
 ```
+
+See `docs/testing.md` for unit coverage, integration-test candidates, and the
+safe Supabase test-environment strategy.
 
 ## 6. Authentication flow
 

@@ -65,10 +65,7 @@ Created for every new `auth.users` row by the `handle_new_user()` trigger
 
 ### 2.3 `businesses`
 
-Shared reference data. Records are persisted **only** when a user saves a
-search result as a lead — never in bulk. Discovery happens via Overture, not by
-reading the `businesses` table, so the table is readable only for business
-records a user has already saved as a lead.
+Shared reference data. Records are persisted **only** when a user explicitly saves a search result as a lead — individually or through an explicit bulk selection. Search results are never imported into `businesses` wholesale, and discovery happens via Overture rather than by reading the `businesses` table, so the table is readable only for business records a user has already saved as a lead.
 
 | Column | Type | Notes |
 |---|---|---|

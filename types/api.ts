@@ -24,6 +24,11 @@ export type ApiError = {
 export type BusinessSearchRequest = {
   niche: string;
   location: string;
+  /**
+   * Opaque continuation cursor from a previous `BusinessSearchResponse`.
+   * Omit it for the first page.
+   */
+  cursor?: string | null;
 };
 
 /**

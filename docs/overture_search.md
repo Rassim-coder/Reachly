@@ -2,11 +2,11 @@
 
 ## 1. Purpose
 
-Overture Maps is the planned source for discovering businesses. DuckDB will query cloud-hosted GeoParquet data, and the Next.js server will expose normalized results to the frontend.
+Overture Maps is the source for discovering businesses. DuckDB queries cloud-hosted GeoParquet data, and the Next.js server exposes normalized results to the frontend through `POST /api/businesses/search`.
 
-This document describes the intended approach. Exact release details and implementation behavior must be verified against the actual prototype and code.
+Search is implemented in Reachly's own files (`lib/overture/`, `app/api/businesses/search/route.ts`) and does not import the prototype under `reference/`.
 
-## 2. Intended Architecture
+## 2. Architecture
 
 1. Receive a niche and location from the user.
 2. Validate the request.
@@ -18,19 +18,29 @@ This document describes the intended approach. Exact release details and impleme
 8. Return results through the server-side API.
 9. Persist a business only when the user saves it as a lead.
 
-## 3. Source Configuration — To Confirm
+## 3. Verified Source Configuration
 
-Record the following before implementation:
+Verified on 2026-10-23:
 
-- Overture release: **TODO — verify exact release**
-- GeoParquet paths: **TODO — verify**
-- Overture schema and relevant columns: **TODO — inspect source**
-- Category taxonomy: **TODO — verify against selected release**
-- DuckDB package and version: **TODO — inspect prototype**
-- Location resolution strategy: **TODO — choose and validate**
-- Pagination strategy: **TODO — implement and test**
+- Overture release: **`2026-10-21.0`**
+- GeoParquet paths:
+  - `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=places/type=place/*` (`hive_partitioning=1`)
+  - `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/type=division_area/*` (`hive_partitioning=1`)
+- Overture schema and relevant columns:
+  - places: `id`, `names.primary`, `taxonomy` (`STRUCT(primary VARCHAR, hierarchy VARCHAR[], alternates VARCHAR[])`), `addresses[1].freeform`, `phones[1]`, `websites[1]`, `emails[1]`, `bbox`
+  - divisions: `names.primary`, `names.common`, `admin_level`, `country`, `class`, `bbox`
+- Category taxonomy: `taxonomy.primary` (VARCHAR). The synonym table in `lib/overture/categories.ts` uses taxonomy values verified from this release, e.g. `dental_clinic`, `general_dentistry`, `auto_dealer`, `legal_service`.
+- DuckDB package and version: `duckdb-async@1.4.2` with the native `duckdb@1.4.2` binding.
+- Location resolution strategy: city name is matched against `names.primary` and `names.common` in `theme=divisions/type=division_area`, restricted by ISO country code; the highest `admin_level` match wins, then the bbox is padded by 5% (minimum 0.02°) per axis.
+- Pagination strategy: **keyset pagination** on the unique place `id`. Each batch runs `ORDER BY id` with `id > lastId` and requests 51 rows to detect whether another batch exists without a `COUNT`. The opaque cursor carries the resolved bbox, matched categories, and last id, so continuation requests skip city resolution and the distinct-category scan. A cursor whose release no longer matches the pin is rejected rather than mixed with the new release.
 
-Do not silently mix releases or assume column names remain identical across releases.
+Critical release note: Overture keeps only a rolling window of releases. The originally planned `2026-08-19.0` is no longer published, and the September 2026 schema removed `categories` in favour of `taxonomy.primary`. Release and schema are pinned in `lib/overture/query.ts`, and `assertReleaseSchema` fails loudly on mismatch. There is **no silent fallback** to another release or field path.
+
+### Runtime integration notes
+
+- `duckdb-async` and `duckdb` are listed in `serverExternalPackages`. The module is loaded through `createRequire(join(process.cwd(), "package.json"))` because Turbopack 16.4 panics while tracing the `duckdb` package's `node-pre-gyp` metadata (`missing field napi_versions`). The require base must be a real filesystem path: Turbopack rewrites `__filename` to its virtual `/ROOT/...` module path, which caused `Cannot find module 'duckdb-async'` at runtime. With this approach the Turbopack production build succeeds and Tailwind processing is preserved.
+- One in-memory DuckDB database is shared per process; each search opens its own connection, and searches are serialized to reuse the warmed S3 metadata cache.
+- A 120-second application-level timeout returns a `504`; it is not a hosting-platform guarantee. Serverless compatibility, memory use under load, and concurrency have not been verified.
 
 ## 4. Niche and Category Mapping
 
@@ -86,7 +96,7 @@ Verify the actual field names and availability before implementing normalization
 
 - Search results are transient.
 - Do not bulk-import every search result into Supabase.
-- Persist a business when the user saves it as a lead.
+- Persist a business only when the user explicitly saves it as a lead (individually or as part of a bulk selection).
 - Preserve a stable source identifier when the source provides one.
 - Decide how to handle records with missing identifiers.
 - Follow the approved business upsert and duplicate-lead rules.
@@ -106,6 +116,21 @@ Test:
 - Pagination consistency.
 
 Use bounded result sizes and prevent unbounded or abusive queries.
+
+### Pagination cost model
+
+Pagination is keyset-based (`ORDER BY id`, `id > lastId`, 51 rows requested per batch). This was chosen over `OFFSET` because DuckDB scans remote Parquet without a stable output order: offset batches could duplicate or skip rows, and deep offsets would rescan more of the result set. Keyset guarantees disjoint batches and does not get slower with depth.
+
+What each batch still does:
+- Opens a connection and loads the (cached) httpfs/spatial extensions.
+- Verifies the pinned schema once per server process, then skips the check.
+- Scans the remote places Parquet for the bbox and category filter. This is unavoidable: Overture has no index on `(bbox, taxonomy.primary, id)`, so the scan runs for every batch.
+
+What continuation batches skip (because the cursor carries them):
+- The `theme=divisions` city lookup.
+- The `SELECT DISTINCT taxonomy.primary` scan used for niche matching.
+
+The first batch is therefore the most expensive; later batches only pay for the places scan. `ORDER BY id` requires sorting the matching rows instead of stopping after 50, but that sort is local and small compared with remote I/O.
 
 ## 9. Deployment Compatibility
 
@@ -134,15 +159,35 @@ Create repeatable tests covering:
 
 Record the exact source release, search parameters, result counts, and timings for each benchmark.
 
+### Measured results (2026-10-23, release `2026-10-21.0`)
+
+Local Node process, single sequential searches, limit 50:
+
+| Niche | Location | Results | Phone | Website | Email | Time |
+| --- | --- | --- | --- | --- | --- | --- |
+| dentist | Oran, Algeria | 50 | 47 | 12 | 36 | 51.0 s (cold start) |
+| car dealer | Algiers, Algeria | 50 | 39 | 20 | 23 | 14.5 s (warm) |
+| restaurant | Paris, France | 50 | 45 | 35 | 13 | 29.3 s (warm) |
+
+The route handler was also invoked directly: validation failures returned `400`, an unknown city returned `404`, and a real search returned `200` with 50 normalized results. Authenticated HTTP testing was not performed because no test credentials were available; unauthenticated HTTP requests are redirected to `/login` by the proxy.
+
+### Measured pagination (2026-10-23, release `2026-10-21.0`)
+
+`dentist` / `Oran, Algeria`, page size 50, sequential keyset batches through the same `runSearch` path used by the API:
+
+| Batch | Raw rows | Normalized | `hasMore` | Time |
+| --- | --- | --- | --- | --- |
+| 1 | 50 | 50 | true | 65.9 s (includes cold connection/metadata warm-up) |
+| 2 | 50 | 50 | true | 3.8 s |
+| 3 | 8 | 8 | false | 5.4 s |
+
+108 normalized results total; 108 unique source ids; **0 duplicates** across batches. Each batch was internally sorted by `id`, and each continuation started strictly after the previous batch's last id. Batch 3 reported `hasMore: false`, so the client would stop without an extra request.
+
+Continuation batches are much faster because the cursor skips the divisions lookup and the distinct-category scan; they still scan the remote places Parquet, so they are not instant.
+
 ## 11. Existing Prototype
 
-A DuckDB prototype may exist outside the current repository.
-
-Before replacing it:
-1. Locate and inspect the existing files.
-2. Identify the source release and schema used.
-3. Compare its query behavior with the intended implementation.
-4. Preserve working behavior until a replacement has been tested.
+The prototype in `reference/overturetest/` was inspected and its working query logic was ported into `lib/overture/`. Reachly does not import anything from that folder at runtime; it can be deleted without affecting search. `tsconfig.json` and `eslint.config.mjs` exclude `reference/` so it does not interfere with project checks.
 
 ## 12. Completion Criteria
 
