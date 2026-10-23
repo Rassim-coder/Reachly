@@ -25,6 +25,18 @@ This is the single canonical search endpoint. `/api/search` does not exist.
 
 `location` must be `"City, Country"` (split on the last comma). Niche is limited to 100 characters and location to 120.
 
+Continuation requests send the same niche and location plus the opaque `cursor` returned by the previous response:
+
+```json
+{
+  "niche": "dentists",
+  "location": "Paris, France",
+  "cursor": "eyJ2IjoxLCJyIjoiMjAyNi0xMC0yMS4wIiwiYiI6Wy..."
+}
+```
+
+Cursors are server-issued, decoded and validated on the server, and rejected with `400 VALIDATION_ERROR` if malformed or issued for a different Overture release. They are not secret and carry no user data.
+
 ### Response
 
 ```json
@@ -46,15 +58,17 @@ This is the single canonical search endpoint. `/api/search` does not exist.
 }
 ```
 
-The example business is illustrative, not a real search result. Rows without a business name are dropped; optional values are `null`, never invented.
+The example business is illustrative, not a real search result. Rows without a business name are dropped; optional values are `null`, never invented. `nextCursor` is an opaque string when another batch may exist, or `null` when the last batch has been returned. The response never includes a total-match count.
 
 ### Current behavior (verified 2026-10-23)
 
-- Maximum 50 results per search; `nextCursor` is always `null` (pagination not implemented).
+- Each request returns at most 50 normalized results. `nextCursor` is non-null when Overture returned at least one row beyond the page; it is `null` once the final batch is reached.
+- Pagination uses keyset ordering on Overture's unique place `id` (`ORDER BY id`, `id > lastId`), so batches cannot overlap or skip rows even though the remote scan is parallel and unordered.
+- Continuation requests reuse the resolved bounding box and matched categories stored in the cursor. This skips the divisions lookup and the distinct-category scan; the remote places scan inside the bbox is still required for every batch.
 - Success returns real Overture release `2026-10-21.0` records (`taxonomy.primary`); a JSON header `X-Overture-Release` echoes the pinned release.
 - Validation failures return `400 VALIDATION_ERROR`; an unknown city returns `404 NOT_FOUND`; timeouts return `504 SEARCH_FAILED`; other query failures return `500 SEARCH_FAILED`.
 - `/api/*` is session-protected by `proxy.ts`, so an unauthenticated request receives a `307` redirect to `/login` rather than a JSON body.
-- Live search is slow (~15–50 s observed); the API applies a 120-second application timeout, which is not a hosting-platform guarantee.
+- Live search is slow (~4–66 s per batch observed); the API applies a 120-second application-level timeout per request, which is not a hosting-platform guarantee.
 
 ### Requirements
 

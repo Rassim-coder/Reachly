@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { decodeSearchCursor, encodeSearchCursor } from "@/lib/overture/cursor";
 import { normalizeBusinesses } from "@/lib/overture/normalize";
 import { OVERTURE_RELEASE, OvertureSearchError, runSearch } from "@/lib/overture/query";
 import type { ApiError, ApiErrorCode, BusinessSearchResponse } from "@/types/api";
@@ -15,7 +16,7 @@ import type { ApiError, ApiErrorCode, BusinessSearchResponse } from "@/types/api
  * authentication is applied here.
  */
 
-const MAX_RESULTS = 50;
+const PAGE_SIZE = 50;
 const MAX_NICHE_LENGTH = 100;
 const MAX_LOCATION_LENGTH = 120;
 /**
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { niche, location } = payload as Record<string, unknown>;
+  const { niche, location, cursor } = payload as Record<string, unknown>;
 
   if (typeof niche !== "string" || niche.trim() === "") {
     return errorResponse("VALIDATION_ERROR", "Provide a business niche.", 400);
@@ -92,6 +93,29 @@ export async function POST(request: Request) {
     );
   }
 
+  if (cursor !== undefined && cursor !== null && typeof cursor !== "string") {
+    return errorResponse(
+      "VALIDATION_ERROR",
+      "The pagination cursor must be a string.",
+      400,
+    );
+  }
+
+  const cursorValue =
+    typeof cursor === "string" && cursor.trim() !== "" ? cursor.trim() : null;
+
+  const decodedCursor = cursorValue
+    ? decodeSearchCursor(cursorValue, OVERTURE_RELEASE)
+    : null;
+
+  if (cursorValue && !decodedCursor) {
+    return errorResponse(
+      "VALIDATION_ERROR",
+      "The pagination cursor is invalid or no longer matches the pinned Overture release. Run the search again.",
+      400,
+    );
+  }
+
   const parsedLocation = parseLocation(location);
 
   if (!parsedLocation) {
@@ -109,12 +133,33 @@ export async function POST(request: Request) {
         city: parsedLocation.city,
         country: parsedLocation.country,
       },
-      { limit: MAX_RESULTS, timeoutMs: SEARCH_TIMEOUT_MS },
+      {
+        limit: PAGE_SIZE,
+        timeoutMs: SEARCH_TIMEOUT_MS,
+        // A continuation page reuses the resolved bbox and categories from the
+        // cursor, so the divisions lookup and distinct-category scan are not
+        // repeated. The remote places scan itself is unavoidable.
+        bbox: decodedCursor?.bbox,
+        categories: decodedCursor?.categories,
+        after: decodedCursor?.after,
+      },
     );
 
+    const normalized = normalizeBusinesses(result.rows);
+    const lastRow = result.rows[result.rows.length - 1];
+
+    const nextCursor =
+      result.hasMore && lastRow
+        ? encodeSearchCursor(OVERTURE_RELEASE, {
+            bbox: result.bbox,
+            categories: result.matchedCategories,
+            after: lastRow.id,
+          })
+        : null;
+
     const body: BusinessSearchResponse = {
-      results: normalizeBusinesses(result.rows),
-      nextCursor: null,
+      results: normalized,
+      nextCursor,
     };
 
     return NextResponse.json(body, {

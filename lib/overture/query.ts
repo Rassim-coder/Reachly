@@ -79,6 +79,16 @@ export interface SearchInput {
 export interface SearchOptions {
   /** Override the resolved city bbox. Intended for tests and diagnostics. */
   bbox?: BBox;
+  /**
+   * Reuse already-resolved categories instead of scanning the bbox again.
+   * Supplied when fetching a continuation page from a cursor.
+   */
+  categories?: string[];
+  /**
+   * Keyset cursor: return only rows whose `id` sorts after this value.
+   * Ordering is `ORDER BY id`, so pages never overlap or skip rows.
+   */
+  after?: string;
   /** Maximum number of rows requested from Overture. */
   limit?: number;
   /** Application-level timeout; not a hosting-platform guarantee. */
@@ -94,6 +104,11 @@ export interface SearchResult {
   suggestions: string[];
   stats: SearchStats;
   rows: PlaceRow[];
+  /**
+   * True when Overture returned at least one row beyond the requested limit.
+   * This is how continuation is detected without running a COUNT query.
+   */
+  hasMore: boolean;
 }
 
 export type OvertureErrorKind =
@@ -382,25 +397,29 @@ async function distinctCategories(conn: Connection, bbox: BBox): Promise<Categor
   return rows.map((row) => ({ category: row.category, count: 1 }));
 }
 
-/** Fetch places matching a category list inside a bbox. */
+/** Fetch one page of places matching a category list inside a bbox. */
 async function fetchPlaces(
   conn: Connection,
   bbox: BBox,
   categories: string[],
-  limit?: number,
-): Promise<PlaceRow[]> {
+  pageSize: number,
+  after?: string,
+): Promise<{ rows: PlaceRow[]; hasMore: boolean }> {
   // Schema notes for the pinned release (2026-10-21.0):
   //   - `taxonomy.primary` is a single VARCHAR (the pre-September schema used
   //     `categories.primary`; it no longer exists)
   //   - phones/websites/emails are text arrays; [1] takes the first one
   //   - bbox is a struct (xmin, xmax, ymin, ymax), not an array
   //   - `assertReleaseSchema` validates this before any query runs.
-  const limitClause =
-    typeof limit === "number" && Number.isFinite(limit) && limit > 0
-      ? ` LIMIT ${Math.floor(limit)}`
-      : "";
+  //
+  // Pagination uses `ORDER BY id` plus `id > after` (keyset). `id` is unique
+  // and stable, so batches cannot overlap or skip rows even though the remote
+  // scan itself is parallel and unordered. One extra row is requested to learn
+  // whether another page exists without a COUNT query.
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const afterClause = after ? `\n      AND id > '${sanitizeForSql(after)}'` : "";
 
-  return (await conn.all(`
+  const rows = (await conn.all(`
     SELECT
       id,
       names.primary                                           AS name,
@@ -416,7 +435,11 @@ async function fetchPlaces(
       AND bbox.ymin >= ${bbox.minLat} AND bbox.ymax <= ${bbox.maxLat}
       AND taxonomy.primary IN (${categories
         .map((category) => `'${sanitizeForSql(category)}'`)
-        .join(", ")})${limitClause}`)) as unknown as PlaceRow[];
+        .join(", ")})${afterClause}
+    ORDER BY id
+    LIMIT ${safePageSize + 1}`)) as unknown as PlaceRow[];
+
+  return { rows: rows.slice(0, safePageSize), hasMore: rows.length > safePageSize };
 }
 
 /**
@@ -504,6 +527,11 @@ async function runSearchInner(
     await assertReleaseSchema(conn);
 
     const work = (async (): Promise<SearchResult> => {
+      const limit =
+        typeof options?.limit === "number" && Number.isFinite(options.limit) && options.limit > 0
+          ? Math.floor(options.limit)
+          : 50;
+
       const cityInfo = options?.bbox
         ? {
             exactName: input.city,
@@ -513,12 +541,33 @@ async function runSearchInner(
           }
         : await resolveCityDivision(conn, input.city, input.country);
 
-      const candidates = await distinctCategories(conn, cityInfo.bbox);
-      const { matched, suggestions } = matchCategories(input.niche, candidates);
+      // Continuation pages reuse the bbox and matched categories from the
+      // cursor, skipping the divisions lookup and the distinct-category scan.
+      let candidates: CategoryCandidate[];
+      let matched: string[];
+      let suggestions: string[];
+
+      if (options?.categories && options.categories.length > 0) {
+        matched = options.categories;
+        suggestions = [];
+        candidates = matched.map((category) => ({ category, count: 0 }));
+      } else {
+        candidates = await distinctCategories(conn, cityInfo.bbox);
+        ({ matched, suggestions } = matchCategories(input.niche, candidates));
+      }
 
       let rows: PlaceRow[] = [];
+      let hasMore = false;
       if (matched.length > 0) {
-        rows = await fetchPlaces(conn, cityInfo.bbox, matched, options?.limit);
+        const page = await fetchPlaces(
+          conn,
+          cityInfo.bbox,
+          matched,
+          limit,
+          options?.after,
+        );
+        rows = page.rows;
+        hasMore = page.hasMore;
       }
 
       const filled = (value: string | null): boolean =>
@@ -542,6 +591,7 @@ async function runSearchInner(
           withEmail: rows.filter((row) => filled(row.email)).length,
         },
         rows,
+        hasMore,
       };
     })();
 

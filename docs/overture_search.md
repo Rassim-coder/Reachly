@@ -32,7 +32,7 @@ Verified on 2026-10-23:
 - Category taxonomy: `taxonomy.primary` (VARCHAR). The synonym table in `lib/overture/categories.ts` uses taxonomy values verified from this release, e.g. `dental_clinic`, `general_dentistry`, `auto_dealer`, `legal_service`.
 - DuckDB package and version: `duckdb-async@1.4.2` with the native `duckdb@1.4.2` binding.
 - Location resolution strategy: city name is matched against `names.primary` and `names.common` in `theme=divisions/type=division_area`, restricted by ISO country code; the highest `admin_level` match wins, then the bbox is padded by 5% (minimum 0.02°) per axis.
-- Pagination strategy: **not implemented**; a search returns at most 50 rows and `nextCursor` is always `null`.
+- Pagination strategy: **keyset pagination** on the unique place `id`. Each batch runs `ORDER BY id` with `id > lastId` and requests 51 rows to detect whether another batch exists without a `COUNT`. The opaque cursor carries the resolved bbox, matched categories, and last id, so continuation requests skip city resolution and the distinct-category scan. A cursor whose release no longer matches the pin is rejected rather than mixed with the new release.
 
 Critical release note: Overture keeps only a rolling window of releases. The originally planned `2026-08-19.0` is no longer published, and the September 2026 schema removed `categories` in favour of `taxonomy.primary`. Release and schema are pinned in `lib/overture/query.ts`, and `assertReleaseSchema` fails loudly on mismatch. There is **no silent fallback** to another release or field path.
 
@@ -117,6 +117,21 @@ Test:
 
 Use bounded result sizes and prevent unbounded or abusive queries.
 
+### Pagination cost model
+
+Pagination is keyset-based (`ORDER BY id`, `id > lastId`, 51 rows requested per batch). This was chosen over `OFFSET` because DuckDB scans remote Parquet without a stable output order: offset batches could duplicate or skip rows, and deep offsets would rescan more of the result set. Keyset guarantees disjoint batches and does not get slower with depth.
+
+What each batch still does:
+- Opens a connection and loads the (cached) httpfs/spatial extensions.
+- Verifies the pinned schema once per server process, then skips the check.
+- Scans the remote places Parquet for the bbox and category filter. This is unavoidable: Overture has no index on `(bbox, taxonomy.primary, id)`, so the scan runs for every batch.
+
+What continuation batches skip (because the cursor carries them):
+- The `theme=divisions` city lookup.
+- The `SELECT DISTINCT taxonomy.primary` scan used for niche matching.
+
+The first batch is therefore the most expensive; later batches only pay for the places scan. `ORDER BY id` requires sorting the matching rows instead of stopping after 50, but that sort is local and small compared with remote I/O.
+
 ## 9. Deployment Compatibility
 
 Before choosing production hosting, verify:
@@ -155,6 +170,20 @@ Local Node process, single sequential searches, limit 50:
 | restaurant | Paris, France | 50 | 45 | 35 | 13 | 29.3 s (warm) |
 
 The route handler was also invoked directly: validation failures returned `400`, an unknown city returned `404`, and a real search returned `200` with 50 normalized results. Authenticated HTTP testing was not performed because no test credentials were available; unauthenticated HTTP requests are redirected to `/login` by the proxy.
+
+### Measured pagination (2026-10-23, release `2026-10-21.0`)
+
+`dentist` / `Oran, Algeria`, page size 50, sequential keyset batches through the same `runSearch` path used by the API:
+
+| Batch | Raw rows | Normalized | `hasMore` | Time |
+| --- | --- | --- | --- | --- |
+| 1 | 50 | 50 | true | 65.9 s (includes cold connection/metadata warm-up) |
+| 2 | 50 | 50 | true | 3.8 s |
+| 3 | 8 | 8 | false | 5.4 s |
+
+108 normalized results total; 108 unique source ids; **0 duplicates** across batches. Each batch was internally sorted by `id`, and each continuation started strictly after the previous batch's last id. Batch 3 reported `hasMore: false`, so the client would stop without an extra request.
+
+Continuation batches are much faster because the cursor skips the divisions lookup and the distinct-category scan; they still scan the remote places Parquet, so they are not instant.
 
 ## 11. Existing Prototype
 

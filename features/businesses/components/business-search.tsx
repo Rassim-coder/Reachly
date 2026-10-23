@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { SearchIcon } from "@/components/ui/icons";
 import { Card, CardHeader, EmptyState } from "@/components/ui/page-shell";
@@ -12,10 +12,20 @@ import type {
 
 import { SaveLeadButton } from "./save-lead-button";
 
+type SearchQuery = { niche: string; location: string };
+
 type SearchState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "success"; results: NormalizedBusiness[]; elapsedMs: number }
+  | {
+      status: "success";
+      query: SearchQuery;
+      results: NormalizedBusiness[];
+      nextCursor: string | null;
+      firstElapsedMs: number;
+      loadingMore: boolean;
+      moreError: string | null;
+    }
   | { status: "error"; message: string };
 
 const inputClasses =
@@ -37,9 +47,15 @@ export function BusinessSearch() {
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
   const [state, setState] = useState<SearchState>({ status: "idle" });
+  const moreInFlight = useRef(false);
+
+  const loading = state.status === "loading";
+  const loadingMore = state.status === "success" && state.loadingMore;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (loadingMore) return;
 
     if (niche.trim() === "" || location.trim() === "") {
       setState({
@@ -49,6 +65,11 @@ export function BusinessSearch() {
       return;
     }
 
+    const query: SearchQuery = {
+      niche: niche.trim(),
+      location: location.trim(),
+    };
+
     setState({ status: "loading" });
     const startedAt = performance.now();
 
@@ -56,7 +77,7 @@ export function BusinessSearch() {
       const response = await fetch("/api/businesses/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ niche: niche.trim(), location: location.trim() }),
+        body: JSON.stringify(query),
       });
 
       const elapsedMs = Math.round(performance.now() - startedAt);
@@ -82,7 +103,15 @@ export function BusinessSearch() {
         return;
       }
 
-      setState({ status: "success", results: payload.results, elapsedMs });
+      setState({
+        status: "success",
+        query,
+        results: payload.results,
+        nextCursor: payload.nextCursor,
+        firstElapsedMs: elapsedMs,
+        loadingMore: false,
+        moreError: null,
+      });
     } catch {
       setState({
         status: "error",
@@ -91,7 +120,92 @@ export function BusinessSearch() {
     }
   }
 
-  const loading = state.status === "loading";
+  async function handleLoadMore() {
+    if (state.status !== "success" || !state.nextCursor || moreInFlight.current) {
+      return;
+    }
+
+    const { query, nextCursor } = state;
+    moreInFlight.current = true;
+    setState({ ...state, loadingMore: true, moreError: null });
+
+    try {
+      const response = await fetch("/api/businesses/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...query, cursor: nextCursor }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | BusinessSearchResponse
+        | ApiError
+        | null;
+
+      if (!response.ok) {
+        const message =
+          payload && "error" in payload
+            ? payload.error.message
+            : `Could not load more results (HTTP ${response.status}).`;
+        setState((previous) =>
+          previous.status === "success"
+            ? { ...previous, loadingMore: false, moreError: message }
+            : previous,
+        );
+        return;
+      }
+
+      if (!payload || !("results" in payload)) {
+        setState((previous) =>
+          previous.status === "success"
+            ? {
+                ...previous,
+                loadingMore: false,
+                moreError: "The search returned an unexpected response.",
+              }
+            : previous,
+        );
+        return;
+      }
+
+      setState((previous) => {
+        if (
+          previous.status !== "success" ||
+          previous.query.niche !== query.niche ||
+          previous.query.location !== query.location
+        ) {
+          return previous;
+        }
+
+        // The server's keyset pages cannot overlap; dedupe is a client-side
+        // safety net so the list never shows the same business twice.
+        const seen = new Set(previous.results.map((business) => business.sourceId));
+
+        return {
+          ...previous,
+          results: [
+            ...previous.results,
+            ...payload.results.filter((business) => !seen.has(business.sourceId)),
+          ],
+          nextCursor: payload.nextCursor,
+          loadingMore: false,
+          moreError: null,
+        };
+      });
+    } catch {
+      setState((previous) =>
+        previous.status === "success"
+          ? {
+              ...previous,
+              loadingMore: false,
+              moreError:
+                "Could not load more results. Check your connection and try again.",
+            }
+          : previous,
+      );
+    } finally {
+      moreInFlight.current = false;
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -135,7 +249,7 @@ export function BusinessSearch() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || loadingMore}
               className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-4 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] disabled:opacity-60"
             >
               <SearchIcon size={15} />
@@ -145,7 +259,7 @@ export function BusinessSearch() {
 
           <p className="text-[11px] text-faint">
             Use “City, Country”. Searches query the live Overture Maps dataset, so the
-            first request can take up to about a minute.
+            first request can take up to about a minute. Results load 50 at a time.
           </p>
         </form>
       </Card>
@@ -196,10 +310,10 @@ export function BusinessSearch() {
           <CardHeader
             title={`${state.results.length} ${
               state.results.length === 1 ? "business" : "businesses"
-            } found`}
-            description={`Live Overture search completed in ${(state.elapsedMs / 1000).toFixed(
+            } loaded`}
+            description={`First batch returned in ${(state.firstElapsedMs / 1000).toFixed(
               1,
-            )}s.`}
+            )}s. Results load 50 at a time; totals are not estimated.`}
           />
 
           <ul className="divide-y divide-line">
@@ -262,6 +376,37 @@ export function BusinessSearch() {
               </li>
             ))}
           </ul>
+
+          <div
+            aria-live="polite"
+            className="mt-4 flex flex-col items-center gap-2 border-t border-line pt-4"
+          >
+            {state.moreError ? (
+              <p role="alert" className="text-center text-[12px] text-[#f87171]">
+                {state.moreError}
+              </p>
+            ) : null}
+
+            {state.nextCursor ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  disabled={state.loadingMore}
+                  className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-line bg-field px-4 text-[13px] font-medium text-foreground hover:border-[#6d3ff0] disabled:opacity-60"
+                >
+                  {state.loadingMore ? "Loading more…" : "Load more"}
+                </button>
+                <p className="text-[11px] text-faint">
+                  {state.loadingMore
+                    ? "Querying the next batch from Overture Maps…"
+                    : "More results are available."}
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] text-faint">No more results available.</p>
+            )}
+          </div>
         </Card>
       ) : null}
     </div>
