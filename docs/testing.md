@@ -2,13 +2,14 @@
 
 ## 1. Current status
 
-Unit tests exist for pure business-search and lead-validation logic.
+Unit tests exist for pure business-search, lead-validation, and My Leads mapping/presentation logic.
 
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
 - The local `.env` does not contain `SUPABASE_SERVICE_ROLE_KEY`, so lead-saving
   persistence cannot currently be exercised end to end.
-- My Leads is still a placeholder page, so there is no page-level query to test.
+- My Leads now has a read-only, authenticated query and list page, but its
+  user-scoped database reads are not yet proven by integration tests.
 
 The suite uses Node's built-in test runner (`node:test`) and native TypeScript
 type stripping. It adds **no test framework dependency**. Tests were verified on
@@ -34,6 +35,7 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/cursor.test.ts` | Cursor round-trip, URL-safe encoding, release/version rejection, malformed payloads, bbox shape and ranges, category and keyset-ID validation, size limit, strict output shape |
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
 | `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, database row mapping |
+| `tests/unit/lead-list.test.ts` | Actual lead-status labels, UTC date formatting, address/city location formatting, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling |
 
 The lead validation was extracted from `features/leads/actions.ts` into
 `features/leads/validation.ts` so it can run without a Next.js request context.
@@ -77,13 +79,15 @@ These behaviors cannot be proven by the unit suite:
 - A partial failure keeps saved rows saved and reports the remainder accurately.
 - One user's leads are never visible to another user.
 
-### My Leads (when implemented)
+### My Leads read-only list
 
 - Reads return only the signed-in user's leads.
-- Ordering, filters, and pagination follow the agreed contract.
+- Leads are returned newest first by `created_at`.
+- The embedded business join returns the expected name and contact fields.
 - The `lead_stats` view reflects inserted leads.
 - RLS blocks cross-user reads and writes at the database level.
 - A saved lead is visibly present after the save action.
+- Empty, query-failure, and loading states render without invented data.
 
 ### Existing gaps also needing coverage later
 
