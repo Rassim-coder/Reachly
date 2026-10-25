@@ -110,7 +110,7 @@ Tasks:
 - [x] Link follow-ups to leads.
 - [x] Complete follow-ups.
 - [ ] Derive navigation badge counts from real data.
-- [ ] Display a dedicated Overdue, Today, and This week queue.
+- [x] Display a dedicated Overdue, Today, and Upcoming queue.
 
 Acceptance criteria:
 

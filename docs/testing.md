@@ -3,7 +3,8 @@
 ## 1. Current status
 
 Unit tests exist for pure business-search, temporary search persistence, lead
-validation, lead-saving result parsing, and My Leads mapping/presentation logic.
+validation, lead-saving result parsing, My Leads mapping/presentation logic, and
+Follow-ups date grouping.
 
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
@@ -14,6 +15,9 @@ validation, lead-saving result parsing, and My Leads mapping/presentation logic.
   status, note, and follow-up updates; activity history; page-scoped selection;
   bulk status/follow-up updates; and bulk deletion. None of those database paths
   are proven by integration tests.
+- Follow-ups has a dedicated server-rendered queue grouped into Overdue, Today,
+  and Upcoming, with inline reschedule/completion and the existing detail drawer.
+  Its authenticated database paths are also unverified.
 
 The suite uses Node's built-in test runner (`node:test`) and native TypeScript
 type stripping. It adds **no test framework dependency**. Tests were verified on
@@ -41,6 +45,7 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
 | `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation, follow-up date validation |
 | `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date and timestamp formatting, category/location formatting, follow-up states, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail, notes and activity mapping, lead id validation |
+| `tests/unit/follow-up-queue.test.ts` | Overdue/today/upcoming grouping, exclusion of unscheduled and invalid dates, stable date/name ordering, no duplicate section membership, input immutability, and UTC date-only boundaries |
 | `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
 | `tests/unit/lead-bulk.test.ts` | Page-scoped select/deselect and indeterminate state, selection pruning, empty/invalid/oversized ids, status validation, changed/unchanged/missing-row planning, status and follow-up summaries, partial failures, batched activity payloads, delete confirmation copy, full/partial/failed deletion results |
 | `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
@@ -106,6 +111,21 @@ These behaviors cannot be proven by the unit suite:
 - A saved lead is visibly present after the save action.
 - Empty, query-failure, loading, and not-found states render without invented
   data.
+
+### Dedicated Follow-ups queue
+
+- A signed-in user's scheduled leads are returned with joined business and
+  contact data; unscheduled leads are excluded.
+- Overdue, today, and upcoming counts match date-only boundaries, no lead appears
+  in two sections, and upcoming rows are ordered nearest first.
+- The batched latest-note read returns only notes owned by the signed-in user; a
+  note-query failure degrades to a visible warning without hiding the queue.
+- Inline reschedule and completion actions persist the date change, record the
+  correct activity, refresh sections/counts, and never change status implicitly.
+- Completion clears the date only after the update succeeds.
+- Another user cannot read or mutate a follow-up by id.
+- The drawer, inline controls, mobile wrapping, busy state, and error feedback
+  require browser verification.
 
 ### Bulk My Leads actions
 
