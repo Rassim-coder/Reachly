@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import type { NormalizedBusiness } from "@/types/api";
 
-import { isLeadStatus } from "./lead-list";
+import { formatLeadDate, isLeadStatus, LEAD_STATUS_LABELS } from "./lead-list";
 import { isValidLeadId } from "./lead-detail";
 import {
   parseSaveLeadsRpcResult,
@@ -21,6 +21,7 @@ import {
   collectBusinessesForBulkSave,
   toBusinessPayload,
   validateBusinessInput,
+  validateLeadFollowUpDate,
   validateLeadNote,
 } from "./validation";
 
@@ -65,7 +66,47 @@ function isMissingSaveFunction(error: {
 function revalidateSavedLeads(leadId?: string) {
   revalidatePath("/my-leads");
   if (leadId) revalidatePath(`/my-leads/${leadId}`);
+  revalidatePath("/follow-ups");
   revalidatePath("/");
+}
+
+type LeadSupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Appends an activity row after a lead mutation. The lead update is already
+ * persisted, so a logging failure is reported as a warning instead of
+ * pretending the mutation failed.
+ */
+async function recordLeadActivity(
+  supabase: LeadSupabaseClient,
+  userId: string,
+  leadId: string,
+  kind:
+    | "status_change"
+    | "follow_up_scheduled"
+    | "follow_up_completed"
+    | "follow_up_cleared",
+  body: string,
+): Promise<boolean> {
+  const { error } = await supabase.from("lead_activities").insert({
+    lead_id: leadId,
+    user_id: userId,
+    kind,
+    body,
+  });
+
+  if (error) {
+    console.error("recordLeadActivity: insert failed", error);
+    return false;
+  }
+
+  return true;
+}
+
+function withActivityWarning(message: string, recorded: boolean): string {
+  return recorded
+    ? message
+    : `${message} The activity history could not be recorded.`;
 }
 
 export async function saveBusinessAsLead(
@@ -230,9 +271,20 @@ export async function updateLeadStatus(
     return { ok: false, message: "Lead not found." };
   }
 
+  const recorded = await recordLeadActivity(
+    supabase,
+    user.id,
+    leadId,
+    "status_change",
+    `Status changed to ${LEAD_STATUS_LABELS[status]}.`,
+  );
+
   revalidateSavedLeads(leadId);
 
-  return { ok: true, message: "Lead status updated." };
+  return {
+    ok: true,
+    message: withActivityWarning("Lead status updated.", recorded),
+  };
 }
 
 export async function addLeadNote(
@@ -277,4 +329,134 @@ export async function addLeadNote(
   revalidateSavedLeads(leadId);
 
   return { ok: true, message: "Note added." };
+}
+
+/**
+ * Sets, changes, or clears `leads.next_follow_up_date`. Follow-ups are a single
+ * pending date in the existing schema; there is no separate follow-up table.
+ */
+export async function updateLeadFollowUp(
+  leadId: string,
+  nextFollowUpDate: string | null,
+): Promise<LeadMutationResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { ok: false, message: "Sign in to update follow-ups." };
+  }
+
+  if (!isValidLeadId(leadId)) {
+    return { ok: false, message: "Lead not found." };
+  }
+
+  if (
+    nextFollowUpDate !== null &&
+    typeof nextFollowUpDate !== "string"
+  ) {
+    return { ok: false, message: "Enter a valid follow-up date." };
+  }
+
+  const cleaned = validateLeadFollowUpDate(nextFollowUpDate);
+
+  if (!cleaned.ok) {
+    return { ok: false, message: cleaned.message };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .update({ next_follow_up_date: cleaned.value })
+    .eq("id", leadId)
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("updateLeadFollowUp: update failed", error);
+    return {
+      ok: false,
+      message: "Could not update this follow-up. Please try again.",
+    };
+  }
+
+  if (!data) {
+    return { ok: false, message: "Lead not found." };
+  }
+
+  const kind = cleaned.value ? "follow_up_scheduled" : "follow_up_cleared";
+  const body = cleaned.value
+    ? `Follow-up scheduled for ${formatLeadDate(cleaned.value) ?? cleaned.value}.`
+    : "Follow-up cleared.";
+  const recorded = await recordLeadActivity(
+    supabase,
+    user.id,
+    leadId,
+    kind,
+    body,
+  );
+
+  revalidateSavedLeads(leadId);
+
+  return {
+    ok: true,
+    message: withActivityWarning(
+      cleaned.value ? "Follow-up scheduled." : "Follow-up cleared.",
+      recorded,
+    ),
+  };
+}
+
+/** Clears the pending date and records a completed follow-up in the history. */
+export async function completeLeadFollowUp(
+  leadId: string,
+): Promise<LeadMutationResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { ok: false, message: "Sign in to update follow-ups." };
+  }
+
+  if (!isValidLeadId(leadId)) {
+    return { ok: false, message: "Lead not found." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .update({ next_follow_up_date: null })
+    .eq("id", leadId)
+    .eq("user_id", user.id)
+    .not("next_follow_up_date", "is", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("completeLeadFollowUp: update failed", error);
+    return {
+      ok: false,
+      message: "Could not complete this follow-up. Please try again.",
+    };
+  }
+
+  if (!data) {
+    return {
+      ok: false,
+      message: "This lead has no scheduled follow-up to complete.",
+    };
+  }
+
+  const recorded = await recordLeadActivity(
+    supabase,
+    user.id,
+    leadId,
+    "follow_up_completed",
+    "Follow-up marked complete.",
+  );
+
+  revalidateSavedLeads(leadId);
+
+  return {
+    ok: true,
+    message: withActivityWarning("Follow-up completed.", recorded),
+  };
 }

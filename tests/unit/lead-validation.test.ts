@@ -9,6 +9,7 @@ import {
   collectBusinessesForBulkSave,
   toBusinessPayload,
   validateBusinessInput,
+  validateLeadFollowUpDate,
   validateLeadNote,
   type CleanBusiness,
 } from "../../features/leads/validation.ts";
@@ -250,5 +251,43 @@ describe("lead note validation", () => {
       ok: false,
       message: `Notes cannot be longer than ${MAX_NOTE_LENGTH} characters.`,
     });
+  });
+});
+
+describe("lead follow-up date validation", () => {
+  test("accepts a valid date-only value", () => {
+    assert.deepEqual(validateLeadFollowUpDate("2026-10-30"), {
+      ok: true,
+      value: "2026-10-30",
+    });
+    assert.deepEqual(validateLeadFollowUpDate(" 2026-10-30 "), {
+      ok: true,
+      value: "2026-10-30",
+    });
+  });
+
+  test("uses null for clearing or omitting a follow-up", () => {
+    for (const input of [null, undefined, "", "   "]) {
+      assert.deepEqual(validateLeadFollowUpDate(input), {
+        ok: true,
+        value: null,
+      });
+    }
+  });
+
+  test("rejects malformed, impossible, and non-string dates", () => {
+    for (const input of [
+      "2026-2-3",
+      "2026-02-30",
+      "2026-13-01",
+      "not-a-date",
+      20261030,
+      {},
+    ]) {
+      assert.deepEqual(validateLeadFollowUpDate(input), {
+        ok: false,
+        message: "Enter a valid follow-up date.",
+      });
+    }
   });
 });

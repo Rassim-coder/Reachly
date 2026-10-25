@@ -1,12 +1,11 @@
-import Link from "next/link";
-
-import { Card, CardHeader } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/page-shell";
 
 import {
-  displayWebsite,
   formatLeadDate,
-  isHttpUrl,
+  getLeadFollowUpState,
+  leadFollowUpLabel,
   leadStatusLabel,
+  type LeadFollowUpState,
   type LeadListItem,
   type LeadStatus,
 } from "../lead-list";
@@ -20,6 +19,13 @@ const statusStyles: Record<LeadStatus, string> = {
   follow_up: "border-violet-500/40 bg-violet-500/10 text-violet-300",
 };
 
+const followUpStyles: Record<LeadFollowUpState, string> = {
+  overdue: "text-red-400",
+  today: "text-amber-300",
+  upcoming: "text-emerald-400",
+  none: "text-faint",
+};
+
 export function StatusBadge({ status }: { status: LeadStatus }) {
   return (
     <span
@@ -30,109 +36,119 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
   );
 }
 
-function ContactDetails({ lead }: { lead: LeadListItem }) {
-  const hasContactDetails = Boolean(lead.phone || lead.email || lead.website);
+export function FollowUpLabel({
+  date,
+  withDate = false,
+}: {
+  date: string | null;
+  withDate?: boolean;
+}) {
+  const state = getLeadFollowUpState(date);
+
+  if (state === "none") {
+    return <span className="text-[12px] text-faint">Not scheduled</span>;
+  }
 
   return (
-    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
-      {lead.phone ? (
-        <a className="hover:text-ink" href={`tel:${lead.phone}`}>
-          {lead.phone}
-        </a>
+    <span className="inline-flex flex-col gap-0.5">
+      {withDate ? (
+        <span className="text-[12px] text-muted">
+          {formatLeadDate(date) ?? "Unknown date"}
+        </span>
       ) : null}
-      {lead.email ? (
-        <a className="hover:text-ink" href={`mailto:${lead.email}`}>
-          {lead.email}
-        </a>
-      ) : null}
-      {lead.website ? (
-        isHttpUrl(lead.website) ? (
-          <a
-            className="hover:text-ink"
-            href={lead.website}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {displayWebsite(lead.website)}
-          </a>
-        ) : (
-          <span>{displayWebsite(lead.website)}</span>
-        )
-      ) : null}
-      {!hasContactDetails ? (
-        <span className="text-faint">No contact details available</span>
-      ) : null}
-    </div>
+      <span className={`text-[11px] font-medium ${followUpStyles[state]}`}>
+        {leadFollowUpLabel(state)}
+      </span>
+    </span>
   );
 }
 
-export function LeadList({ leads }: { leads: LeadListItem[] }) {
+export function LeadTable({
+  leads,
+  onSelect,
+}: {
+  leads: LeadListItem[];
+  onSelect: (leadId: string) => void;
+}) {
   return (
-    <Card>
-      <CardHeader
-        title={`${leads.length} saved ${leads.length === 1 ? "lead" : "leads"}`}
-        description="Newest saved first."
-      />
-
-      <ul className="divide-y divide-line">
-        {leads.map((lead) => (
-          <li
-            key={lead.id}
-            className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
-          >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={`/my-leads/${lead.id}`}
-                  className="text-[13px] font-semibold underline-offset-4 hover:underline"
-                >
+    <div className="overflow-x-auto rounded-xl border border-line">
+      <table className="w-full min-w-[780px] border-collapse text-left">
+        <caption className="sr-only">
+          Saved leads with status and follow-up dates
+        </caption>
+        <thead>
+          <tr className="border-b border-line bg-field/60 text-[10px] font-medium tracking-[.06em] text-faint uppercase">
+            <th scope="col" className="px-3 py-2.5 font-medium">
+              Business
+            </th>
+            <th scope="col" className="px-3 py-2.5 font-medium">
+              Niche
+            </th>
+            <th scope="col" className="px-3 py-2.5 font-medium">
+              Location
+            </th>
+            <th scope="col" className="px-3 py-2.5 font-medium">
+              Status
+            </th>
+            <th scope="col" className="px-3 py-2.5 font-medium">
+              Added
+            </th>
+            <th scope="col" className="px-3 py-2.5 font-medium">
+              Next follow-up
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {leads.map((lead) => (
+            <tr
+              key={lead.id}
+              tabIndex={0}
+              aria-label={`Open details for ${lead.businessName}`}
+              onClick={() => onSelect(lead.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(lead.id);
+                }
+              }}
+              className="cursor-pointer transition-colors hover:bg-field/60 focus-visible:bg-field focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+            >
+              <td className="px-3 py-3">
+                <span className="block max-w-[240px] truncate text-[13px] font-semibold">
                   {lead.businessName}
-                </Link>
+                </span>
+                {lead.phone ? (
+                  <span className="mt-0.5 block max-w-[240px] truncate text-[11px] text-muted">
+                    {lead.phone}
+                  </span>
+                ) : null}
+              </td>
+              <td className="px-3 py-3 text-[12px] text-muted">
+                {lead.category ?? "—"}
+              </td>
+              <td className="max-w-[220px] px-3 py-3 text-[12px] text-muted">
+                <span className="line-clamp-2">{lead.location ?? "—"}</span>
+              </td>
+              <td className="px-3 py-3">
                 <StatusBadge status={lead.status} />
-              </div>
-
-              {lead.location ? (
-                <p className="mt-0.5 text-[12px] text-muted">{lead.location}</p>
-              ) : null}
-
-              <ContactDetails lead={lead} />
-
-              <p className="mt-1.5 text-[11px] text-faint">
-                Saved {formatLeadDate(lead.createdAt) ?? "—"}
-                {" · "}
-                <Link
-                  href={`/my-leads/${lead.id}`}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  View details
-                </Link>
-              </p>
-            </div>
-
-            <dl className="grid shrink-0 grid-cols-2 gap-x-6 gap-y-1 text-[11px] sm:text-right">
-              <div>
-                <dt className="text-faint">Last contact</dt>
-                <dd className="text-muted">
-                  {formatLeadDate(lead.lastContactedAt) ?? "Not contacted"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-faint">Next follow-up</dt>
-                <dd className="text-muted">
-                  {formatLeadDate(lead.nextFollowUpDate) ?? "Not scheduled"}
-                </dd>
-              </div>
-            </dl>
-          </li>
-        ))}
-      </ul>
-    </Card>
+              </td>
+              <td className="px-3 py-3 text-[12px] whitespace-nowrap text-muted">
+                {formatLeadDate(lead.createdAt) ?? "—"}
+              </td>
+              <td className="px-3 py-3 whitespace-nowrap">
+                <FollowUpLabel date={lead.nextFollowUpDate} withDate />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 /**
  * Shown while the request-scoped lead query is in flight. It reserves the same
- * card and row shape as the loaded list without displaying invented content.
+ * card and table shape as the loaded list without displaying invented content.
  */
 export function LeadListSkeleton() {
   return (
@@ -143,16 +159,9 @@ export function LeadListSkeleton() {
           <div className="h-4 w-36 animate-pulse rounded bg-field" />
           <div className="mt-2 h-3 w-24 animate-pulse rounded bg-field" />
         </div>
-        <div className="space-y-4" aria-hidden="true">
-          {[0, 1, 2].map((index) => (
-            <div key={index} className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-              <div className="space-y-2">
-                <div className="h-3.5 w-48 animate-pulse rounded bg-field" />
-                <div className="h-3 w-64 animate-pulse rounded bg-field" />
-                <div className="h-3 w-40 animate-pulse rounded bg-field" />
-              </div>
-              <div className="h-8 w-40 animate-pulse rounded bg-field" />
-            </div>
+        <div className="space-y-2" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((index) => (
+            <div key={index} className="h-12 animate-pulse rounded-lg bg-field" />
           ))}
         </div>
       </div>

@@ -80,13 +80,14 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Implement safe business persistence.
-- [ ] Save a business as a lead.
-- [ ] Prevent duplicate leads.
-- [ ] Display persisted leads in My Leads.
-- [ ] Implement lead detail and edit operations.
-- [ ] Implement status changes.
-- [ ] Add notes and activity history.
+- [x] Implement safe business persistence.
+- [x] Save a business as a lead.
+- [x] Prevent duplicate leads.
+- [x] Display persisted leads in My Leads.
+- [x] Implement the lead detail drawer.
+- [x] Implement status changes.
+- [x] Add notes and activity history.
+- [ ] Implement editing saved business/contact fields.
 - [ ] Implement authorized deletion if required.
 
 Acceptance criteria:
@@ -100,12 +101,12 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Finalize the follow-up data model.
-- [ ] Schedule and reschedule follow-ups.
-- [ ] Link follow-ups to leads.
-- [ ] Complete follow-ups.
+- [ ] Finalize whether one pending date per lead is sufficient.
+- [x] Schedule and reschedule follow-ups.
+- [x] Link follow-ups to leads.
+- [x] Complete follow-ups.
 - [ ] Derive navigation badge counts from real data.
-- [ ] Display Overdue, Today, and This week groups.
+- [ ] Display a dedicated Overdue, Today, and This week queue.
 
 Acceptance criteria:
 

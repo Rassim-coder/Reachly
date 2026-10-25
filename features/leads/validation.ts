@@ -172,3 +172,42 @@ export function validateLeadNote(input: unknown): CleanNoteResult {
 
   return { ok: true, value: trimmed };
 }
+
+export type CleanFollowUpDateResult =
+  | { ok: true; value: string | null }
+  | { ok: false; message: string };
+
+/**
+ * Follow-ups are stored as date-only values. `null` and an empty string mean
+ * "no scheduled follow-up".
+ */
+export function validateLeadFollowUpDate(
+  input: unknown,
+): CleanFollowUpDateResult {
+  if (input === null || input === undefined || input === "") {
+    return { ok: true, value: null };
+  }
+
+  if (typeof input !== "string") {
+    return { ok: false, message: "Enter a valid follow-up date." };
+  }
+
+  const trimmed = input.trim();
+  if (trimmed === "") {
+    return { ok: true, value: null };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return { ok: false, message: "Enter a valid follow-up date." };
+  }
+
+  const date = new Date(`${trimmed}T00:00:00Z`);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== trimmed
+  ) {
+    return { ok: false, message: "Enter a valid follow-up date." };
+  }
+
+  return { ok: true, value: trimmed };
+}

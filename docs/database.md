@@ -115,12 +115,12 @@ but no time of day. The follow-up queue must not assume a time.
 
 **Open design decision:** follow-ups are a single pending date per lead. There is
 no `follow_ups` table, so a lead cannot hold multiple scheduled tasks — see
-`docs/API.md` §5.
+`docs/API.md` §5. The current My Leads workflow uses this single-date model.
 
 ### 2.5 `lead_activities`
 
-Append-only history: `saved`, `note`, `status_change`, `follow_up_scheduled`,
-`follow_up_completed`.
+History: `saved`, `note`, `status_change`, `follow_up_scheduled`,
+`follow_up_completed`, `follow_up_cleared`.
 
 | Column | Type | Notes |
 |---|---|---|

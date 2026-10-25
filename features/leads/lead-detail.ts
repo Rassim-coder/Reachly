@@ -1,9 +1,18 @@
-import type { LeadListItem, LeadStatus } from "./lead-list";
+import type { Database } from "@/lib/supabase/database.types";
+
+import {
+  formatLeadCategory,
+  type LeadListItem,
+  type LeadStatus,
+} from "./lead-list.ts";
 
 /**
- * Pure mapping for the lead detail screen. Database reads live in `queries.ts`;
- * this module only converts joined rows and activity rows into view data.
+ * Pure mapping for the lead detail drawer and detail route. Database reads live
+ * in `queries.ts`; this module only converts joined rows and activity rows into
+ * view data.
  */
+
+export type LeadActivityKind = Database["public"]["Enums"]["activity_kind"];
 
 export type LeadDetailRowBusiness = {
   name: string;
@@ -37,9 +46,26 @@ export type LeadNoteItem = {
   createdAt: string;
 };
 
+export type LeadActivityItem = {
+  id: string;
+  kind: LeadActivityKind;
+  label: string;
+  body: string;
+  createdAt: string;
+};
+
 export type LeadDetail = LeadListItem & {
-  category: string | null;
   notes: LeadNoteItem[];
+  activities: LeadActivityItem[];
+};
+
+const ACTIVITY_KIND_LABELS: Record<LeadActivityKind, string> = {
+  saved: "Lead saved",
+  note: "Note",
+  status_change: "Status changed",
+  follow_up_scheduled: "Follow-up scheduled",
+  follow_up_completed: "Follow-up completed",
+  follow_up_cleared: "Follow-up cleared",
 };
 
 function cleanText(value: string | null | undefined): string | null {
@@ -66,6 +92,11 @@ export function isValidLeadId(value: unknown): value is string {
   );
 }
 
+function isActivityKind(value: string): value is LeadActivityKind {
+  return Object.prototype.hasOwnProperty.call(ACTIVITY_KIND_LABELS, value);
+}
+
+/** Kept for the existing note-only detail helpers and tests. */
 export function mapLeadActivityRow(row: LeadActivityRow): LeadNoteItem | null {
   if (row.kind !== "note") return null;
 
@@ -73,6 +104,27 @@ export function mapLeadActivityRow(row: LeadActivityRow): LeadNoteItem | null {
   if (!body) return null;
 
   return { id: row.id, body, createdAt: row.created_at };
+}
+
+/** Maps every supported activity kind into the drawer timeline. */
+export function mapLeadActivityItem(
+  row: LeadActivityRow,
+): LeadActivityItem | null {
+  if (!isActivityKind(row.kind)) return null;
+
+  const cleanBody = cleanText(row.body);
+
+  // An empty note has no content to show. Other activity kinds have a useful
+  // label even when older rows were stored without a body.
+  if (row.kind === "note" && !cleanBody) return null;
+
+  return {
+    id: row.id,
+    kind: row.kind,
+    label: ACTIVITY_KIND_LABELS[row.kind],
+    body: cleanBody ?? ACTIVITY_KIND_LABELS[row.kind],
+    createdAt: row.created_at,
+  };
 }
 
 export function mapLeadDetailRow(
@@ -86,14 +138,23 @@ export function mapLeadDetailRow(
 
   if (!businessName) return null;
 
-  const notes = activities
-    .map(mapLeadActivityRow)
-    .filter((note): note is LeadNoteItem => note !== null);
+  const mappedActivities = activities
+    .map(mapLeadActivityItem)
+    .filter((activity): activity is LeadActivityItem => activity !== null);
+
+  const notes = mappedActivities
+    .filter((activity) => activity.kind === "note")
+    .map((activity) => ({
+      id: activity.id,
+      body: activity.body,
+      createdAt: activity.createdAt,
+    }));
 
   return {
     id: row.id,
     createdAt: row.created_at,
     businessName,
+    category: formatLeadCategory(business?.category),
     phone: cleanText(business?.phone),
     email: cleanText(business?.email),
     website: cleanText(business?.website),
@@ -104,7 +165,7 @@ export function mapLeadDetailRow(
     status: row.status,
     lastContactedAt: row.last_contacted_at,
     nextFollowUpDate: row.next_follow_up_date,
-    category: cleanText(business?.category),
     notes,
+    activities: mappedActivities,
   };
 }

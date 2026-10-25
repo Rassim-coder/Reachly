@@ -1,7 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
 
-import { ArrowUpRightIcon } from "@/components/ui/icons";
 import {
   Card,
   DashboardPage,
@@ -9,8 +7,10 @@ import {
   PageHeader,
 } from "@/components/ui/page-shell";
 
-import { LeadList, LeadListSkeleton } from "@/features/leads/components/lead-list";
-import { getMyLeads } from "@/features/leads/queries";
+import { LeadListSkeleton } from "@/features/leads/components/lead-list";
+import { LeadWorkspace } from "@/features/leads/components/lead-workspace";
+import { DEFAULT_LEAD_FILTERS } from "@/features/leads/lead-filters";
+import { getMyLeadsPage } from "@/features/leads/queries";
 
 export default function MyLeadsPage() {
   return (
@@ -28,7 +28,7 @@ export default function MyLeadsPage() {
 }
 
 async function MyLeadsContent() {
-  const result = await getMyLeads();
+  const result = await getMyLeadsPage(DEFAULT_LEAD_FILTERS);
 
   if (!result.ok) {
     return (
@@ -40,24 +40,5 @@ async function MyLeadsContent() {
     );
   }
 
-  if (result.leads.length === 0) {
-    return (
-      <Card>
-        <EmptyState
-          title="No leads yet"
-          description="Businesses you save from Find Businesses will appear here, newest first."
-          action={
-            <Link
-              href="/find-businesses"
-              className="mt-3 inline-flex items-center gap-1 text-[12px] text-primary"
-            >
-              Find businesses <ArrowUpRightIcon size={11} />
-            </Link>
-          }
-        />
-      </Card>
-    );
-  }
-
-  return <LeadList leads={result.leads} />;
+  return <LeadWorkspace initial={result} />;
 }

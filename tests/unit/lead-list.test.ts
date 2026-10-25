@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 
 import {
   isValidLeadId,
+  mapLeadActivityItem,
   mapLeadActivityRow,
   mapLeadDetailRow,
   type LeadActivityRow,
@@ -10,13 +11,18 @@ import {
 } from "../../features/leads/lead-detail.ts";
 import {
   displayWebsite,
+  formatLeadCategory,
   formatLeadDate,
   formatLeadLocation,
+  formatLeadTimestamp,
+  getLeadFollowUpState,
   isHttpUrl,
   isLeadStatus,
   LEAD_STATUS_LABELS,
+  leadFollowUpLabel,
   leadStatusLabel,
   mapLeadRow,
+  todayDateString,
   type LeadListRow,
   type LeadListRowBusiness,
   type LeadStatus,
@@ -27,6 +33,7 @@ function business(
 ): LeadListRowBusiness {
   return {
     name: "Clinique Dentaire",
+    category: "dental_clinic",
     phone: "+213 555 01 02",
     email: "contact@example.dz",
     website: "https://example.dz",
@@ -81,12 +88,53 @@ describe("lead date formatting", () => {
     assert.equal(formatLeadDate("2026-10-24"), "24 Oct 2026");
   });
 
+  test("formats activity timestamps with a time", () => {
+    assert.equal(
+      formatLeadTimestamp("2026-10-24T23:30:00.000Z"),
+      "24 Oct 2026, 23:30",
+    );
+    assert.equal(formatLeadTimestamp(null), null);
+    assert.equal(formatLeadTimestamp("not-a-date"), null);
+  });
+
   test("returns null for empty or invalid values", () => {
     assert.equal(formatLeadDate(null), null);
     assert.equal(formatLeadDate(undefined), null);
     assert.equal(formatLeadDate(""), null);
     assert.equal(formatLeadDate("   "), null);
     assert.equal(formatLeadDate("not-a-date"), null);
+  });
+});
+
+describe("lead category formatting", () => {
+  test("humanizes category tokens without inventing a value", () => {
+    assert.equal(formatLeadCategory("dental_clinic"), "Dental clinic");
+    assert.equal(formatLeadCategory("  marketing-agency "), "Marketing agency");
+    assert.equal(formatLeadCategory(null), null);
+    assert.equal(formatLeadCategory("   "), null);
+  });
+});
+
+describe("lead follow-up state", () => {
+  test("uses date-only comparisons for overdue, today, and upcoming", () => {
+    const today = "2026-10-25";
+
+    assert.equal(getLeadFollowUpState("2026-10-24", today), "overdue");
+    assert.equal(getLeadFollowUpState("2026-10-25", today), "today");
+    assert.equal(getLeadFollowUpState("2026-10-26", today), "upcoming");
+    assert.equal(getLeadFollowUpState(null, today), "none");
+    assert.equal(getLeadFollowUpState("not-a-date", today), "none");
+  });
+
+  test("produces deterministic UTC date keys and readable labels", () => {
+    assert.equal(
+      todayDateString(new Date("2026-10-25T23:59:59.000Z")),
+      "2026-10-25",
+    );
+    assert.equal(leadFollowUpLabel("overdue"), "Overdue");
+    assert.equal(leadFollowUpLabel("today"), "Due today");
+    assert.equal(leadFollowUpLabel("upcoming"), "Upcoming");
+    assert.equal(leadFollowUpLabel("none"), "Not scheduled");
   });
 });
 
@@ -142,6 +190,7 @@ describe("lead row mapping", () => {
         id: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
         createdAt: "2026-10-24T12:34:56.000Z",
         businessName: "Clinique Dentaire",
+        category: "Dental clinic",
         phone: "+213 555 01 02",
         email: "contact@example.dz",
         website: "https://example.dz/",
@@ -214,6 +263,7 @@ describe("lead detail mapping", () => {
       id: detailRow.id,
       createdAt: detailRow.created_at,
       businessName: "Clinique Dentaire",
+      category: "Dental clinic",
       phone: "+213 555 01 02",
       email: "contact@example.dz",
       website: "https://example.dz",
@@ -221,10 +271,18 @@ describe("lead detail mapping", () => {
       status: "contacted",
       lastContactedAt: "2026-10-24T15:00:00.000Z",
       nextFollowUpDate: "2026-10-30",
-      category: "dental_clinic",
       notes: [
         {
           id: "b1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          body: "Asked for a quote.",
+          createdAt: "2026-10-24T16:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "b1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          kind: "note",
+          label: "Note",
           body: "Asked for a quote.",
           createdAt: "2026-10-24T16:00:00.000Z",
         },
@@ -243,6 +301,31 @@ describe("lead detail mapping", () => {
     assert.equal(mapped?.notes.length, 1);
     assert.equal(mapped?.notes[0]?.body, "Asked for a quote.");
     assert.equal(mapLeadActivityRow(activity({ kind: "saved" })), null);
+  });
+
+  test("maps supported activity kinds into the drawer timeline", () => {
+    assert.deepEqual(
+      mapLeadActivityItem(
+        activity({
+          id: "c1",
+          kind: "follow_up_scheduled",
+          body: "Follow-up scheduled for 30 Oct 2026.",
+          created_at: "2026-10-25T08:00:00.000Z",
+        }),
+      ),
+      {
+        id: "c1",
+        kind: "follow_up_scheduled",
+        label: "Follow-up scheduled",
+        body: "Follow-up scheduled for 30 Oct 2026.",
+        createdAt: "2026-10-25T08:00:00.000Z",
+      },
+    );
+
+    assert.equal(
+      mapLeadActivityItem(activity({ kind: "unknown_kind", body: "ignored" })),
+      null,
+    );
   });
 
   test("returns null when the lead's business cannot be mapped", () => {

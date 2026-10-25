@@ -2,47 +2,78 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 import {
+  LEAD_PAGE_SIZE,
+  parseLeadFilters,
+  toCategoryIlikePattern,
+  toIlikePattern,
+  type LeadListFilters,
+} from "./lead-filters";
+import {
   isValidLeadId,
   mapLeadDetailRow,
   type LeadActivityRow,
   type LeadDetail,
   type LeadDetailRow,
 } from "./lead-detail";
-import { mapLeadRow, type LeadListItem } from "./lead-list";
+import {
+  mapLeadRow,
+  todayDateString,
+  type LeadListItem,
+  type LeadListRow,
+} from "./lead-list";
 
 /**
- * Fields needed by the read-only My Leads list. The embedded business is a
- * many-to-one join through `leads.business_id`.
+ * Fields needed by the My Leads list. The embedded business is a many-to-one
+ * join through `leads.business_id`.
  */
-const LEAD_LIST_SELECT = `
-  id,
-  created_at,
-  status,
-  last_contacted_at,
-  next_follow_up_date,
-  businesses!leads_business_id_fkey (
-    name,
-    phone,
-    email,
-    website,
-    address,
-    city
-  )
-`;
+function leadListSelect(innerJoin: boolean): string {
+  const relation = innerJoin
+    ? "businesses!leads_business_id_fkey!inner"
+    : "businesses!leads_business_id_fkey";
+
+  return `
+    id,
+    created_at,
+    status,
+    last_contacted_at,
+    next_follow_up_date,
+    ${relation} (
+      name,
+      category,
+      phone,
+      email,
+      website,
+      address,
+      city
+    )
+  `;
+}
+
+export type MyLeadsSuccess = {
+  ok: true;
+  leads: LeadListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  filters: LeadListFilters;
+};
 
 export type MyLeadsResult =
-  | { ok: true; leads: LeadListItem[] }
+  | MyLeadsSuccess
   | { ok: false; message: string };
 
 /**
- * Returns the signed-in user's leads, newest first.
+ * Returns one filtered, sorted page of the signed-in user's leads.
  *
- * The explicit `user_id` filter and the authenticated Supabase client provide
- * request-level scoping; RLS remains the database-level protection. A query
- * failure is returned as an error result instead of being rendered as an empty
- * list, so the page never implies the user has no leads when the read failed.
+ * All input is normalized before it is used. The explicit `user_id` filter and
+ * the authenticated Supabase client provide request-level scoping; RLS remains
+ * the database-level protection.
  */
-export async function getMyLeads(): Promise<MyLeadsResult> {
+export async function getMyLeadsPage(
+  input: unknown = {},
+): Promise<MyLeadsResult> {
+  const filters = parseLeadFilters(input);
   const user = await getCurrentUser();
 
   if (!user) {
@@ -50,23 +81,98 @@ export async function getMyLeads(): Promise<MyLeadsResult> {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("leads")
-    .select(LEAD_LIST_SELECT)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const needsBusinessJoin = filters.search !== "" || filters.category !== "";
 
-  if (error) {
-    console.error("getMyLeads: failed to read leads", error);
-    return { ok: false, message: "Could not load your leads. Please try again." };
+  let query = supabase
+    .from("leads")
+    .select(leadListSelect(needsBusinessJoin), { count: "exact" })
+    .eq("user_id", user.id);
+
+  if (filters.search !== "") {
+    query = query.ilike("businesses.name", toIlikePattern(filters.search));
   }
 
-  const rows = data ?? [];
-  const leads = rows
+  if (filters.category !== "") {
+    query = query.ilike(
+      "businesses.category",
+      toCategoryIlikePattern(filters.category),
+    );
+  }
+
+  if (filters.status !== "all") {
+    query = query.eq("status", filters.status);
+  }
+
+  const today = todayDateString();
+
+  switch (filters.followUp) {
+    case "overdue":
+      query = query.lt("next_follow_up_date", today);
+      break;
+    case "upcoming":
+      query = query.gte("next_follow_up_date", today);
+      break;
+    case "none":
+      query = query.is("next_follow_up_date", null);
+      break;
+    default:
+      break;
+  }
+
+  switch (filters.sort) {
+    case "oldest":
+      query = query.order("created_at", { ascending: true });
+      break;
+    case "follow_up_asc":
+      query = query
+        .order("next_follow_up_date", {
+          ascending: true,
+          nullsFirst: false,
+        })
+        .order("created_at", { ascending: false });
+      break;
+    case "follow_up_desc":
+      query = query
+        .order("next_follow_up_date", {
+          ascending: false,
+          nullsFirst: false,
+        })
+        .order("created_at", { ascending: false });
+      break;
+    default:
+      query = query.order("created_at", { ascending: false });
+      break;
+  }
+
+  const offset = (filters.page - 1) * LEAD_PAGE_SIZE;
+  const { data, error, count } = await query.range(
+    offset,
+    offset + LEAD_PAGE_SIZE - 1,
+  );
+
+  if (error) {
+    console.error("getMyLeadsPage: failed to read leads", error);
+    return {
+      ok: false,
+      message: "Could not load your leads. Please try again.",
+    };
+  }
+
+  const leads = ((data ?? []) as unknown as LeadListRow[])
     .map((row) => mapLeadRow(row))
     .filter((lead): lead is LeadListItem => lead !== null);
+  const total = count ?? leads.length;
+  const pageCount = Math.max(1, Math.ceil(total / LEAD_PAGE_SIZE));
 
-  return { ok: true, leads };
+  return {
+    ok: true,
+    leads,
+    total,
+    page: filters.page,
+    pageSize: LEAD_PAGE_SIZE,
+    pageCount,
+    filters,
+  };
 }
 
 const LEAD_DETAIL_SELECT = `
@@ -93,12 +199,15 @@ const LEAD_ACTIVITY_SELECT = `
   created_at
 `;
 
+/** Maximum activity items loaded into one drawer. */
+const ACTIVITY_LIMIT = 50;
+
 export type LeadDetailResult =
   | { ok: true; lead: LeadDetail }
   | { ok: false; reason: "not_found" | "error"; message: string };
 
 /**
- * Returns one lead owned by the signed-in user, with its notes.
+ * Returns one lead owned by the signed-in user, with its recent activity.
  *
  * `id` and `user_id` are both applied even though RLS already scopes the read.
  * A lead that is missing, malformed, or owned by another user is reported as
@@ -135,7 +244,8 @@ export async function getLeadDetails(
       .select(LEAD_ACTIVITY_SELECT)
       .eq("lead_id", leadId)
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .limit(ACTIVITY_LIMIT),
   ]);
 
   if (leadResult.error) {
@@ -159,7 +269,7 @@ export async function getLeadDetails(
     return {
       ok: false,
       reason: "error",
-      message: "Could not load this lead's notes. Please try again.",
+      message: "Could not load this lead's activity. Please try again.",
     };
   }
 

@@ -7,11 +7,12 @@ parsing, and My Leads mapping/presentation logic.
 
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
-- Lead saving now uses the proposed `save_businesses_as_leads` RPC instead of the
-  service-role client. The SQL script in `docs/sql/save_lead_function.sql` has
-  **not** been applied, so persistence remains unverified.
-- My Leads has an authenticated list, detail page, status update, and note
-  creation. None of those database paths are proven by integration tests.
+- Lead saving uses the `save_businesses_as_leads` RPC instead of the service-role
+  client. The function is installed in the development project, but no automated
+  database integration test verifies it and no production verification is claimed.
+- My Leads has an authenticated, filtered, paginated list; a detail drawer;
+  status, note, and follow-up updates; and activity history. None of those
+  database paths are proven by integration tests.
 
 The suite uses Node's built-in test runner (`node:test`) and native TypeScript
 type stripping. It adds **no test framework dependency**. Tests were verified on
@@ -36,8 +37,9 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/result-filters.test.ts` | Website/phone/email presence filters, AND combinations, empty results, whitespace/null handling, active-filter detection, no mutation of loaded rows |
 | `tests/unit/cursor.test.ts` | Cursor round-trip, URL-safe encoding, release/version rejection, malformed payloads, bbox shape and ranges, category and keyset-ID validation, size limit, strict output shape |
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
-| `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation |
-| `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date formatting, address/city location formatting, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail and note mapping, lead id validation |
+| `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation, follow-up date validation |
+| `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date and timestamp formatting, category/location formatting, follow-up states, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail, notes and activity mapping, lead id validation |
+| `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching |
 | `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
 
 The lead validation was extracted from `features/leads/actions.ts` into
@@ -82,14 +84,20 @@ These behaviors cannot be proven by the unit suite:
 - A partial failure keeps saved rows saved and reports the remainder accurately.
 - One user's leads are never visible to another user.
 
-### My Leads list, detail, status, and notes
+### My Leads list, drawer, status, notes, and follow-ups
 
-- Reads return only the signed-in user's leads, newest first.
+- Filtered and paginated reads return only the signed-in user's leads.
+- Search, category, status, follow-up, and sort combinations return the expected
+  rows and accurate counts.
 - The embedded business join returns the expected name and contact fields.
-- Opening a lead loads only the signed-in user's lead and its notes.
-- A status update uses one of the real `lead_status` values.
+- Opening a lead loads only the signed-in user's lead, notes, and activities.
+- A status update uses one of the real `lead_status` values and records an
+  activity.
 - A note is inserted with `kind = 'note'` and the authenticated owner.
-- A user cannot read or mutate another user's lead or add a note to it.
+- Follow-ups can be scheduled, changed, cleared, and completed; the latter two
+  record the correct activity kind.
+- Overdue, due-today, upcoming, and unscheduled dates render correctly.
+- A user cannot read or mutate another user's lead, notes, or follow-ups.
 - RLS blocks cross-user reads and writes at the database level.
 - The `lead_stats` view reflects inserted leads.
 - A saved lead is visibly present after the save action.
@@ -212,6 +220,6 @@ now.
   build remain required.
 - Tests use concrete file lists in `package.json`; add new test files there when
   introducing them so they run on all platforms without shell glob expansion.
-- My Leads database reads, status updates, and notes are implemented but remain
-  unverified against a database. Only their pure mapping, status guard, and note
-  validation are covered.
+- My Leads reads, filters, pagination, status updates, notes, follow-ups, and
+  activities are implemented but remain unverified against a database. Only
+  their pure mapping, filtering, validation, and presentation logic are covered.

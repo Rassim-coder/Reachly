@@ -1,7 +1,7 @@
 import type { Database } from "@/lib/supabase/database.types";
 
 /**
- * Pure mapping and presentation helpers for the read-only My Leads list.
+ * Pure mapping and presentation helpers for the My Leads list.
  *
  * The Supabase query remains in `queries.ts`; this module deliberately has no
  * I/O so the row mapping and formatting can be unit-tested without a database.
@@ -11,6 +11,7 @@ export type LeadStatus = Database["public"]["Enums"]["lead_status"];
 
 export type LeadListRowBusiness = {
   name: string;
+  category: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -35,6 +36,7 @@ export type LeadListItem = {
   id: string;
   createdAt: string;
   businessName: string;
+  category: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -83,10 +85,34 @@ export function formatLeadLocation(
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+/**
+ * Turns the source category token into a readable label without changing the
+ * underlying value stored in the database.
+ */
+export function formatLeadCategory(value: string | null | undefined): string | null {
+  const category = cleanText(value);
+  if (!category) return null;
+
+  const words = category.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (words === "") return null;
+
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+  timeZone: "UTC",
+});
+
+const timestampFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
   timeZone: "UTC",
 });
 
@@ -108,6 +134,56 @@ export function formatLeadDate(value: string | null | undefined): string | null 
   if (Number.isNaN(date.getTime())) return null;
 
   return dateFormatter.format(date);
+}
+
+/** Formats an activity timestamp with a visible time, unlike date-only fields. */
+export function formatLeadTimestamp(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return timestampFormatter.format(date);
+}
+
+/** The current calendar day used for date-only follow-up comparisons. */
+export function todayDateString(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+export type LeadFollowUpState = "overdue" | "today" | "upcoming" | "none";
+
+/**
+ * Follow-up dates are date-only values. Comparing their normalized YYYY-MM-DD
+ * form avoids timezone shifts and time-of-day ambiguity.
+ */
+export function getLeadFollowUpState(
+  value: string | null | undefined,
+  today: string = todayDateString(),
+): LeadFollowUpState {
+  const followUpDate = cleanText(value);
+  if (!followUpDate || !/^\d{4}-\d{2}-\d{2}$/.test(followUpDate)) {
+    return "none";
+  }
+
+  if (followUpDate < today) return "overdue";
+  if (followUpDate === today) return "today";
+  return "upcoming";
+}
+
+export function leadFollowUpLabel(state: LeadFollowUpState): string {
+  switch (state) {
+    case "overdue":
+      return "Overdue";
+    case "today":
+      return "Due today";
+    case "upcoming":
+      return "Upcoming";
+    default:
+      return "Not scheduled";
+  }
 }
 
 export function isHttpUrl(value: string): boolean {
@@ -141,6 +217,7 @@ export function mapLeadRow(row: LeadListRow): LeadListItem | null {
     id: row.id,
     createdAt: row.created_at,
     businessName,
+    category: formatLeadCategory(business.category),
     phone: cleanText(business.phone),
     email: cleanText(business.email),
     website: cleanText(business.website),

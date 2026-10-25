@@ -7,9 +7,9 @@ export default function FollowUpsPage() {
         title="Follow-ups"
         description="Scheduled next steps, most urgent first."
         planned={[
-          "Grouped into Overdue, Today, and This week from real dates.",
-          "Schedule, reschedule, and complete a follow-up.",
-          "Navigation count derived from persisted follow-up data.",
+          "This dedicated queue will group real dates into Overdue, Today, and This week.",
+          "Scheduling, rescheduling, and completing follow-ups are available from My Leads.",
+          "Navigation count will be derived from persisted follow-up data.",
         ]}
       />
     </DashboardPage>

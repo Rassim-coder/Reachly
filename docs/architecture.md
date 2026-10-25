@@ -108,9 +108,13 @@ trust limitation remains documented in `docs/database.md`.
 ## 6. Lead Management Flow
 
 - My Leads queries the authenticated user's leads.
+- Filtered and paginated list reads go through read-only Server Actions; the list
+  does not navigate away for search, filter, sort, or page changes.
+- The detail drawer reads one owned lead plus its 50 most recent activity rows.
 - Lead changes are validated on the server.
 - Notes and activities are associated with the correct lead and user.
-- Follow-ups are stored as real dates and linked to leads.
+- Follow-ups use the existing single `next_follow_up_date` date per lead; there is
+  no separate follow-up table or parallel task system.
 - Overview and analytics use persisted data rather than hard-coded values.
 
 ## 7. Proposed Code Organization

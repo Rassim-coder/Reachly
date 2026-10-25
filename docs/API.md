@@ -131,7 +131,8 @@ Updates permitted lead fields, such as status or follow-up date.
 
 Deletes a lead owned by the authenticated user, subject to the approved deletion and activity-retention behavior.
 
-These routes are proposed, not implemented.
+These routes are proposed, not implemented. The current My Leads UI uses
+authenticated Server Actions for reads and mutations instead.
 
 ## 4. Lead Activities
 
@@ -139,7 +140,7 @@ Possible operations:
 - List activities for a lead.
 - Add a note.
 - Record a status change.
-- Record follow-up scheduling or completion.
+- Record follow-up scheduling, clearing, or completion.
 
 All operations must verify that the lead belongs to the authenticated user.
 
@@ -149,9 +150,12 @@ The implementation must support:
 - Listing upcoming and overdue follow-ups.
 - Scheduling a follow-up.
 - Rescheduling a follow-up.
+- Clearing a scheduled follow-up.
 - Completing a follow-up.
 
-The API design must be finalized after deciding whether one pending follow-up date per lead is sufficient or multiple tasks per lead are required.
+My Leads currently supports scheduling, changing, clearing, and completing the
+single pending date per lead. A dedicated Follow-ups queue API is not implemented.
+The data model decision about one date versus multiple tasks per lead remains open.
 
 ## 6. Error Format
 
