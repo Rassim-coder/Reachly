@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
+import { resolveCategoryAliases } from "@/lib/overture/categories";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -93,10 +94,16 @@ export async function getMyLeadsPage(
   }
 
   if (filters.category !== "") {
-    query = query.ilike(
-      "businesses.category",
-      toCategoryIlikePattern(filters.category),
-    );
+    const aliases = resolveCategoryAliases(filters.category);
+
+    if (aliases.length > 0) {
+      query = query.in("businesses.category", aliases);
+    } else {
+      query = query.ilike(
+        "businesses.category",
+        toCategoryIlikePattern(filters.category),
+      );
+    }
   }
 
   if (filters.status !== "all") {

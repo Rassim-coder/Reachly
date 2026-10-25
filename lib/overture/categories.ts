@@ -89,9 +89,50 @@ const SYNONYMS: Record<string, string[]> = {
   supermarket: ["grocery_store", "supercenter", "superstore"],
 };
 
+/** Canonical taxonomy values already named by the synonym table. */
+const KNOWN_CATEGORY_VALUES = new Set(Object.values(SYNONYMS).flat());
+
 /** Lowercase phrase used as a SYNONYMS key. */
 function normalizePhrase(input: string): string {
   return input.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Normalize free text to the underscore form used by Overture categories. */
+function normalizeCategoryToken(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/**
+ * Resolve a My Leads category filter to exact Overture taxonomy values.
+ *
+ * Known synonym phrases (for example "dentist" or "Dental clinic") expand to
+ * every related category. The normalized original input is included as well so
+ * legacy rows that stored the niche phrase or a directly entered taxonomy value
+ * continue to match. Unknown input returns an empty list; callers should keep
+ * the existing escaped substring search for that case.
+ */
+export function resolveCategoryAliases(input: string): string[] {
+  if (typeof input !== "string") return [];
+
+  const phrase = normalizePhrase(input).replace(/[\s_-]+/g, " ");
+  if (phrase === "") return [];
+
+  const normalizedInput = normalizeCategoryToken(input);
+  const aliases = SYNONYMS[phrase];
+
+  if (aliases) {
+    return [...new Set([...aliases, normalizedInput])].filter(Boolean);
+  }
+
+  if (KNOWN_CATEGORY_VALUES.has(normalizedInput)) {
+    return [normalizedInput];
+  }
+
+  return [];
 }
 
 /** Split a free-text niche into comparison words. */

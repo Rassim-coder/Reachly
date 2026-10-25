@@ -10,6 +10,7 @@ import {
   toCategoryIlikePattern,
   toIlikePattern,
 } from "../../features/leads/lead-filters.ts";
+import { resolveCategoryAliases } from "../../lib/overture/categories.ts";
 
 describe("lead filter parsing", () => {
   test("returns defaults for missing or malformed input", () => {
@@ -90,6 +91,44 @@ describe("lead filter state", () => {
 
   test("keeps the page size stable for the server query", () => {
     assert.equal(LEAD_PAGE_SIZE, 20);
+  });
+});
+
+describe("category alias resolution", () => {
+  test("expands dentist to every related taxonomy value and the legacy token", () => {
+    assert.deepEqual(resolveCategoryAliases("dentist"), [
+      "dental_clinic",
+      "general_dentistry",
+      "cosmetic_dentistry",
+      "dentist",
+    ]);
+  });
+
+  test("accepts supported dental clinic spellings without duplicates", () => {
+    const expected = ["dental_clinic", "general_dentistry"];
+
+    assert.deepEqual(resolveCategoryAliases("Dental clinic"), expected);
+    assert.deepEqual(resolveCategoryAliases("dental-clinic"), expected);
+    assert.deepEqual(resolveCategoryAliases(" dental_clinic "), expected);
+  });
+
+  test("keeps direct taxonomy values exact", () => {
+    assert.deepEqual(resolveCategoryAliases("general_dentistry"), [
+      "general_dentistry",
+    ]);
+    assert.deepEqual(resolveCategoryAliases("cosmetic_dentistry"), [
+      "cosmetic_dentistry",
+    ]);
+  });
+
+  test("returns no aliases for unknown text", () => {
+    assert.deepEqual(resolveCategoryAliases("marketing agency"), []);
+    assert.deepEqual(resolveCategoryAliases("not-a-category"), []);
+  });
+
+  test("keeps wildcard input on the escaped ILIKE fallback path", () => {
+    assert.deepEqual(resolveCategoryAliases("50%_off"), []);
+    assert.equal(toCategoryIlikePattern("50%_off"), "%50\\%\\_off%");
   });
 });
 
