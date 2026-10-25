@@ -138,10 +138,11 @@ Empty directories are held with a `.gitkeep` until they contain real code.
 Implemented: repository structure, Supabase client/auth wiring, initial schema
 migration, dashboard shell with auth guard, Overture business search, saving
 businesses as leads, and My Leads with filters, pagination, a detail drawer,
-status updates, notes, activity history, and follow-up dates.
+status updates, notes, activity history, follow-up dates, page-scoped row
+selection, bulk status/follow-up changes, and authorized bulk deletion.
 
 Not implemented: a dedicated Follow-ups queue, lists, templates, settings
-persistence, analytics, AI, and lead deletion. The remaining placeholder pages
-state this explicitly and render no mock data.
+persistence, analytics, and AI. The remaining placeholder pages state this
+explicitly and render no mock data.
 
 See `PROJECT_BRIEF.md` §11 and `docs/roadmap.md` for the authoritative status.

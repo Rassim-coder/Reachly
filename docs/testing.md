@@ -11,8 +11,9 @@ parsing, and My Leads mapping/presentation logic.
   client. The function is installed in the development project, but no automated
   database integration test verifies it and no production verification is claimed.
 - My Leads has an authenticated, filtered, paginated list; a detail drawer;
-  status, note, and follow-up updates; and activity history. None of those
-  database paths are proven by integration tests.
+  status, note, and follow-up updates; activity history; page-scoped selection;
+  bulk status/follow-up updates; and bulk deletion. None of those database paths
+  are proven by integration tests.
 
 The suite uses Node's built-in test runner (`node:test`) and native TypeScript
 type stripping. It adds **no test framework dependency**. Tests were verified on
@@ -39,7 +40,8 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
 | `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation, follow-up date validation |
 | `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date and timestamp formatting, category/location formatting, follow-up states, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail, notes and activity mapping, lead id validation |
-| `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching |
+| `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
+| `tests/unit/lead-bulk.test.ts` | Page-scoped select/deselect and indeterminate state, selection pruning, empty/invalid/oversized ids, status validation, changed/unchanged/missing-row planning, status and follow-up summaries, partial failures, batched activity payloads, delete confirmation copy, full/partial/failed deletion results |
 | `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
 
 The lead validation was extracted from `features/leads/actions.ts` into
@@ -104,12 +106,31 @@ These behaviors cannot be proven by the unit suite:
 - Empty, query-failure, loading, and not-found states render without invented
   data.
 
+### Bulk My Leads actions
+
+- Select-all checks only the current page; changing filters or pages prunes ids
+  that are no longer visible.
+- Bulk status updates validate the real enum and record one activity per changed
+  lead, with no activity for rows already at that status.
+- Bulk follow-up scheduling, rescheduling, and clearing update only owned rows
+  and record the compatible activity kinds.
+- Bulk deletion removes only the caller's leads, keeps shared businesses, and
+  lets the existing activity/list-membership cascades do their documented work.
+- A second user cannot select, update, or delete the first user's lead by id.
+- Partial update/activity/delete failures return counts that match the final
+  rows.
+- Deleting the final rows on a page moves the list to a valid page and clears
+  deleted ids from selection.
+- Rapid repeated submissions do not create duplicate activities.
+- The delete confirmation, selection toolbar, indeterminate header checkbox,
+  mobile wrapping, and drawer refresh are browser-verified.
+
 ### Existing gaps also needing coverage later
 
 - Search route validation and pagination edge cases.
 - Overture/DuckDB queries and release-schema guard (network and native runtime).
-- Browser interaction: selection, select-all, filters, Load more persistence,
-  bulk-save states.
+- Browser interaction: business-result selection, select-all, filters, Load more
+  persistence, and bulk-save states.
 - “Load more” continuation against real Overture data.
 
 ## 5. Safe Supabase test strategy
@@ -214,12 +235,17 @@ now.
   behavior; changing it is a product decision.
 - Bulk save counts, duplicate handling, function privileges, and shared-business
   overwrite protection remain unverified against a live database.
+- Bulk lead status, follow-up, delete, activity, ownership, and RLS behavior
+  remain unverified against an authenticated database session. Only validation,
+  planning, activity payloads, result messages, and pure selection logic are
+  covered.
 - No test currently covers `getCurrentUser`, the `UNAUTHENTICATED` path, route
   validation, DuckDB/Overture queries, or UI interactions.
 - Node's native TypeScript support does not type-check; `pnpm typecheck` and the
   build remain required.
 - Tests use concrete file lists in `package.json`; add new test files there when
   introducing them so they run on all platforms without shell glob expansion.
-- My Leads reads, filters, pagination, status updates, notes, follow-ups, and
-  activities are implemented but remain unverified against a database. Only
-  their pure mapping, filtering, validation, and presentation logic are covered.
+- My Leads reads, filters, pagination, status updates, notes, follow-ups,
+  activities, bulk mutations, and deletion are implemented but remain unverified
+  against a database. Only their pure mapping, filtering, validation, planning,
+  and presentation logic are covered.

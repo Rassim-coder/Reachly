@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   useTransition,
@@ -19,6 +20,7 @@ import {
 import { loadMyLeads } from "../list-actions";
 import {
   DEFAULT_LEAD_FILTERS,
+  getSafeLeadPage,
   hasActiveLeadFilters,
   type LeadFollowUpFilter,
   type LeadListFilters,
@@ -28,7 +30,15 @@ import {
   LEAD_STATUS_LABELS,
   type LeadStatus,
 } from "../lead-list";
+import {
+  deselectIds,
+  pruneSelection,
+  setPageSelection,
+  toggleSelectedLead,
+} from "../lead-selection";
+import type { BulkLeadResult } from "../bulk";
 import type { MyLeadsSuccess } from "../queries";
+import { LeadBulkActions } from "./lead-bulk-actions";
 import { LeadDrawer } from "./lead-drawer";
 import { LeadTable } from "./lead-list";
 
@@ -40,6 +50,12 @@ const filterButtonClasses =
 
 const secondaryButtonClasses =
   "inline-flex h-[32px] items-center justify-center rounded-full border border-line bg-surface px-3.5 text-[12px] font-medium text-muted transition-colors hover:bg-field hover:text-ink disabled:opacity-50";
+
+const bulkFeedbackStyles: Record<BulkLeadResult["tone"], string> = {
+  success: "border-positive/30 bg-positive-soft text-positive",
+  warning: "border-amber-500/30 bg-amber-500/5 text-amber-300",
+  error: "border-red-500/30 bg-red-500/5 text-red-300",
+};
 
 const followUpOptions: Array<{
   value: LeadFollowUpFilter;
@@ -67,6 +83,21 @@ export function LeadWorkspace({ initial }: { initial: MyLeadsSuccess }) {
   const [queryPending, startQueryTransition] = useTransition();
   const requestId = useRef(0);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [bulkFeedback, setBulkFeedback] = useState<BulkLeadResult | null>(null);
+  const [drawerRevision, setDrawerRevision] = useState(0);
+  const filtersRef = useRef(filters);
+  const selectedLeadIdRef = useRef(selectedLeadId);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  useEffect(() => {
+    selectedLeadIdRef.current = selectedLeadId;
+  }, [selectedLeadId]);
 
   const closeDrawer = useCallback(() => {
     setSelectedLeadId(null);
@@ -86,15 +117,24 @@ export function LeadWorkspace({ initial }: { initial: MyLeadsSuccess }) {
         return;
       }
 
-      if (next.page > next.pageCount) {
-        runQuery({ ...next.filters, page: next.pageCount });
+      const safePage = getSafeLeadPage(next.page, next.pageCount);
+
+      if (safePage !== next.page) {
+        runQuery({ ...next.filters, page: safePage });
         return;
       }
 
       setResult(next);
       setFilters(next.filters);
+      filtersRef.current = next.filters;
       setSearchDraft(next.filters.search);
       setCategoryDraft(next.filters.category);
+      setSelectedIds((current) =>
+        pruneSelection(
+          current,
+          next.leads.map((lead) => lead.id),
+        ),
+      );
     });
   }
 
@@ -117,6 +157,51 @@ export function LeadWorkspace({ initial }: { initial: MyLeadsSuccess }) {
     setSearchDraft("");
     setCategoryDraft("");
     runQuery({ ...DEFAULT_LEAD_FILTERS });
+  }
+
+  const pageIds = result.leads.map((lead) => lead.id);
+
+  function handleToggleSelected(leadId: string) {
+    setSelectedIds((current) => toggleSelectedLead(current, leadId));
+  }
+
+  function handleTogglePage(checked: boolean) {
+    setSelectedIds((current) => setPageSelection(current, pageIds, checked));
+  }
+
+  function handleClearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkMutated(next: BulkLeadResult) {
+    setBulkFeedback(next);
+
+    if (next.affectedIds.length === 0) return;
+
+    const affected = new Set(next.affectedIds);
+    if (selectedLeadIdRef.current && affected.has(selectedLeadIdRef.current)) {
+      setDrawerRevision((current) => current + 1);
+    }
+
+    runQuery(filtersRef.current);
+  }
+
+  function handleBulkDeleted(next: BulkLeadResult) {
+    setBulkFeedback(next);
+
+    if (next.affectedIds.length === 0) return;
+
+    const deleted = new Set(next.affectedIds);
+    setSelectedIds((current) => deselectIds(current, next.affectedIds));
+
+    if (
+      selectedLeadIdRef.current &&
+      deleted.has(selectedLeadIdRef.current)
+    ) {
+      setSelectedLeadId(null);
+    }
+
+    runQuery(filtersRef.current);
   }
 
   const firstItem =
@@ -259,6 +344,30 @@ export function LeadWorkspace({ initial }: { initial: MyLeadsSuccess }) {
         </div>
       ) : null}
 
+      {bulkFeedback ? (
+        <div
+          role={bulkFeedback.tone === "error" ? "alert" : "status"}
+          className={`mb-3 flex items-start justify-between gap-3 rounded-xl border px-3 py-2 text-[12px] ${bulkFeedbackStyles[bulkFeedback.tone]}`}
+        >
+          <p>{bulkFeedback.message}</p>
+          <button
+            type="button"
+            onClick={() => setBulkFeedback(null)}
+            className="shrink-0 font-medium underline-offset-2 hover:underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      <LeadBulkActions
+        selectedIds={[...selectedIds]}
+        disabled={queryPending}
+        onClearSelection={handleClearSelection}
+        onMutated={handleBulkMutated}
+        onDeleted={handleBulkDeleted}
+      />
+
       <Card>
         <CardHeader
           title={
@@ -316,7 +425,13 @@ export function LeadWorkspace({ initial }: { initial: MyLeadsSuccess }) {
               />
             )
           ) : (
-            <LeadTable leads={result.leads} onSelect={setSelectedLeadId} />
+            <LeadTable
+              leads={result.leads}
+              selectedIds={selectedIds}
+              onSelect={setSelectedLeadId}
+              onToggleSelected={handleToggleSelected}
+              onTogglePage={handleTogglePage}
+            />
           )}
         </div>
 
@@ -347,8 +462,9 @@ export function LeadWorkspace({ initial }: { initial: MyLeadsSuccess }) {
 
       <LeadDrawer
         leadId={selectedLeadId}
+        refreshToken={drawerRevision}
         onClose={closeDrawer}
-        onLeadMutated={() => runQuery(filters)}
+        onLeadMutated={() => runQuery(filtersRef.current)}
       />
     </>
   );

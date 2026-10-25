@@ -80,6 +80,17 @@ function cleanPage(value: unknown): number {
   return Math.min(value, MAX_PAGE);
 }
 
+/**
+ * Keeps the client on a real page after a mutation or deletion removes the last
+ * rows from the requested page. An empty result set always resolves to page 1.
+ */
+export function getSafeLeadPage(page: number, pageCount: number): number {
+  if (!Number.isInteger(pageCount) || pageCount < 1) return 1;
+  if (!Number.isInteger(page) || page < 1) return 1;
+
+  return Math.min(page, pageCount);
+}
+
 /** Revalidates an untrusted filter object before it reaches Supabase. */
 export function parseLeadFilters(input: unknown): LeadListFilters {
   if (typeof input !== "object" || input === null) {

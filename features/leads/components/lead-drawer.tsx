@@ -71,10 +71,12 @@ function DetailItem({
 
 export function LeadDrawer({
   leadId,
+  refreshToken,
   onClose,
   onLeadMutated,
 }: {
   leadId: string | null;
+  refreshToken: number;
   onClose: () => void;
   onLeadMutated: () => void;
 }) {
@@ -82,7 +84,7 @@ export function LeadDrawer({
 
   return (
     <LeadDrawerPanel
-      key={leadId}
+      key={`${leadId}:${refreshToken}`}
       leadId={leadId}
       onClose={onClose}
       onLeadMutated={onLeadMutated}

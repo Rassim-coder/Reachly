@@ -9,6 +9,7 @@ import {
   type LeadListItem,
   type LeadStatus,
 } from "../lead-list";
+import { getPageSelectionState } from "../lead-selection";
 
 const statusStyles: Record<LeadStatus, string> = {
   new: "border-sky-500/40 bg-sky-500/10 text-sky-300",
@@ -65,19 +66,41 @@ export function FollowUpLabel({
 
 export function LeadTable({
   leads,
+  selectedIds,
   onSelect,
+  onToggleSelected,
+  onTogglePage,
 }: {
   leads: LeadListItem[];
+  selectedIds: ReadonlySet<string>;
   onSelect: (leadId: string) => void;
+  onToggleSelected: (leadId: string) => void;
+  onTogglePage: (checked: boolean) => void;
 }) {
+  const pageIds = leads.map((lead) => lead.id);
+  const pageSelection = getPageSelectionState(selectedIds, pageIds);
+
   return (
     <div className="overflow-x-auto rounded-xl border border-line">
-      <table className="w-full min-w-[780px] border-collapse text-left">
+      <table className="w-full min-w-[840px] border-collapse text-left">
         <caption className="sr-only">
           Saved leads with status and follow-up dates
         </caption>
         <thead>
           <tr className="border-b border-line bg-field/60 text-[10px] font-medium tracking-[.06em] text-faint uppercase">
+            <th scope="col" className="w-10 px-3 py-2.5 font-medium">
+              <input
+                type="checkbox"
+                checked={pageSelection === "all"}
+                ref={(element) => {
+                  if (element) element.indeterminate = pageSelection === "some";
+                }}
+                onChange={(event) => onTogglePage(event.target.checked)}
+                disabled={leads.length === 0}
+                aria-label="Select all leads on this page"
+                className="size-4 cursor-pointer rounded border-line accent-[#6d3ff0] disabled:cursor-not-allowed"
+              />
+            </th>
             <th scope="col" className="px-3 py-2.5 font-medium">
               Business
             </th>
@@ -99,47 +122,67 @@ export function LeadTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
-          {leads.map((lead) => (
-            <tr
-              key={lead.id}
-              tabIndex={0}
-              aria-label={`Open details for ${lead.businessName}`}
-              onClick={() => onSelect(lead.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect(lead.id);
-                }
-              }}
-              className="cursor-pointer transition-colors hover:bg-field/60 focus-visible:bg-field focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
-            >
-              <td className="px-3 py-3">
-                <span className="block max-w-[240px] truncate text-[13px] font-semibold">
-                  {lead.businessName}
-                </span>
-                {lead.phone ? (
-                  <span className="mt-0.5 block max-w-[240px] truncate text-[11px] text-muted">
-                    {lead.phone}
+          {leads.map((lead) => {
+            const isSelected = selectedIds.has(lead.id);
+
+            return (
+              <tr
+                key={lead.id}
+                tabIndex={0}
+                aria-label={`Open details for ${lead.businessName}`}
+                onClick={() => onSelect(lead.id)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(lead.id);
+                  }
+                }}
+                className={`cursor-pointer transition-colors hover:bg-field/60 focus-visible:bg-field focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary ${
+                  isSelected ? "bg-primary/5" : ""
+                }`}
+              >
+                <td
+                  className="w-10 px-3 py-3"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelected(lead.id)}
+                    aria-label={`Select ${lead.businessName}`}
+                    className="size-4 cursor-pointer rounded border-line accent-[#6d3ff0]"
+                  />
+                </td>
+                <td className="px-3 py-3">
+                  <span className="block max-w-[240px] truncate text-[13px] font-semibold">
+                    {lead.businessName}
                   </span>
-                ) : null}
-              </td>
-              <td className="px-3 py-3 text-[12px] text-muted">
-                {lead.category ?? "—"}
-              </td>
-              <td className="max-w-[220px] px-3 py-3 text-[12px] text-muted">
-                <span className="line-clamp-2">{lead.location ?? "—"}</span>
-              </td>
-              <td className="px-3 py-3">
-                <StatusBadge status={lead.status} />
-              </td>
-              <td className="px-3 py-3 text-[12px] whitespace-nowrap text-muted">
-                {formatLeadDate(lead.createdAt) ?? "—"}
-              </td>
-              <td className="px-3 py-3 whitespace-nowrap">
-                <FollowUpLabel date={lead.nextFollowUpDate} withDate />
-              </td>
-            </tr>
-          ))}
+                  {lead.phone ? (
+                    <span className="mt-0.5 block max-w-[240px] truncate text-[11px] text-muted">
+                      {lead.phone}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="px-3 py-3 text-[12px] text-muted">
+                  {lead.category ?? "—"}
+                </td>
+                <td className="max-w-[220px] px-3 py-3 text-[12px] text-muted">
+                  <span className="line-clamp-2">{lead.location ?? "—"}</span>
+                </td>
+                <td className="px-3 py-3">
+                  <StatusBadge status={lead.status} />
+                </td>
+                <td className="px-3 py-3 text-[12px] whitespace-nowrap text-muted">
+                  {formatLeadDate(lead.createdAt) ?? "—"}
+                </td>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <FollowUpLabel date={lead.nextFollowUpDate} withDate />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

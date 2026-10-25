@@ -115,6 +115,13 @@ trust limitation remains documented in `docs/database.md`.
 - Notes and activities are associated with the correct lead and user.
 - Follow-ups use the existing single `next_follow_up_date` date per lead; there is
   no separate follow-up table or parallel task system.
+- Row selection is keyed by stable lead ids and scoped to the visible page.
+  Select-all never expands to every matching lead across pagination. Filtering,
+  sorting, or paging prunes selected ids that are no longer visible.
+- Bulk status and follow-up actions skip unchanged rows, use one batched activity
+  insert, and report partial failures without claiming unchanged rows succeeded.
+- Bulk delete removes only the caller's leads. Existing `lead_activities` and
+  `list_leads` foreign keys cascade; shared `businesses` records are retained.
 - Overview and analytics use persisted data rather than hard-coded values.
 
 ## 7. Proposed Code Organization

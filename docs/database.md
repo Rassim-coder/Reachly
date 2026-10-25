@@ -109,6 +109,10 @@ Constraints and indexes:
   `list_leads`.
 - Indexes on `(user_id, created_at desc)`, `business_id`, `(user_id, status)`,
   and a partial index on `(user_id, next_follow_up_date) where next_follow_up_date is not null`.
+- Deleting a lead cascades its `lead_activities` and `list_leads` rows. The
+  `leads.business_id` restriction applies in the other direction, so deleting a
+  lead never deletes the shared `businesses` record. The active bulk-delete
+  action relies on this behavior without adding a migration.
 
 ⚠ `next_follow_up_date` is a **`date`**, not a timestamp: follow-ups have a day
 but no time of day. The follow-up queue must not assume a time.

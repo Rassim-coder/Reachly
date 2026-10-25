@@ -7,8 +7,23 @@ import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import type { NormalizedBusiness } from "@/types/api";
 
-import { formatLeadDate, isLeadStatus, LEAD_STATUS_LABELS } from "./lead-list";
+import { isLeadStatus } from "./lead-list";
 import { isValidLeadId } from "./lead-detail";
+import {
+  buildBulkActivityRows,
+  buildBulkFollowUpActivity,
+  buildBulkStatusActivityBody,
+  bulkErrorResult,
+  planBulkFollowUpChange,
+  planBulkStatusChange,
+  summarizeBulkDelete,
+  summarizeBulkFollowUpChange,
+  summarizeBulkStatusChange,
+  validateBulkLeadIds,
+  validateBulkStatus,
+  type BulkLeadResult,
+  type LeadActivityInsertKind,
+} from "./bulk";
 import {
   parseSaveLeadsRpcResult,
   singleSaveMessage,
@@ -73,34 +88,40 @@ function revalidateSavedLeads(leadId?: string) {
 type LeadSupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
- * Appends an activity row after a lead mutation. The lead update is already
+ * Appends activity rows after lead mutations. The lead updates are already
  * persisted, so a logging failure is reported as a warning instead of
- * pretending the mutation failed.
+ * pretending the mutations failed. Bulk operations insert one array so they do
+ * not issue a request per lead.
  */
-async function recordLeadActivity(
+async function recordLeadActivities(
   supabase: LeadSupabaseClient,
   userId: string,
-  leadId: string,
-  kind:
-    | "status_change"
-    | "follow_up_scheduled"
-    | "follow_up_completed"
-    | "follow_up_cleared",
+  leadIds: readonly string[],
+  kind: LeadActivityInsertKind,
   body: string,
 ): Promise<boolean> {
-  const { error } = await supabase.from("lead_activities").insert({
-    lead_id: leadId,
-    user_id: userId,
-    kind,
-    body,
-  });
+  if (leadIds.length === 0) return true;
+
+  const { error } = await supabase
+    .from("lead_activities")
+    .insert(buildBulkActivityRows(userId, leadIds, kind, body));
 
   if (error) {
-    console.error("recordLeadActivity: insert failed", error);
+    console.error("recordLeadActivities: insert failed", error);
     return false;
   }
 
   return true;
+}
+
+async function recordLeadActivity(
+  supabase: LeadSupabaseClient,
+  userId: string,
+  leadId: string,
+  kind: LeadActivityInsertKind,
+  body: string,
+): Promise<boolean> {
+  return recordLeadActivities(supabase, userId, [leadId], kind, body);
 }
 
 function withActivityWarning(message: string, recorded: boolean): string {
@@ -276,7 +297,7 @@ export async function updateLeadStatus(
     user.id,
     leadId,
     "status_change",
-    `Status changed to ${LEAD_STATUS_LABELS[status]}.`,
+    buildBulkStatusActivityBody(status),
   );
 
   revalidateSavedLeads(leadId);
@@ -383,16 +404,13 @@ export async function updateLeadFollowUp(
     return { ok: false, message: "Lead not found." };
   }
 
-  const kind = cleaned.value ? "follow_up_scheduled" : "follow_up_cleared";
-  const body = cleaned.value
-    ? `Follow-up scheduled for ${formatLeadDate(cleaned.value) ?? cleaned.value}.`
-    : "Follow-up cleared.";
+  const activity = buildBulkFollowUpActivity(cleaned.value);
   const recorded = await recordLeadActivity(
     supabase,
     user.id,
     leadId,
-    kind,
-    body,
+    activity.kind,
+    activity.body,
   );
 
   revalidateSavedLeads(leadId);
@@ -459,4 +477,279 @@ export async function completeLeadFollowUp(
     ok: true,
     message: withActivityWarning("Follow-up completed.", recorded),
   };
+}
+
+/**
+ * Applies one valid status to every owned lead in the selection. Rows already
+ * at that status are skipped so they do not receive a duplicate activity.
+ */
+export async function bulkUpdateLeadStatus(
+  leadIds: string[],
+  status: string,
+): Promise<BulkLeadResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return bulkErrorResult("Sign in to update leads.");
+  }
+
+  const idCheck = validateBulkLeadIds(leadIds);
+  if (!idCheck.ok) {
+    return bulkErrorResult(idCheck.message);
+  }
+
+  const statusCheck = validateBulkStatus(status);
+  if (!statusCheck.ok) {
+    return bulkErrorResult(statusCheck.message, idCheck.ids.length);
+  }
+
+  const supabase = await createClient();
+  const { data: rows, error: readError } = await supabase
+    .from("leads")
+    .select("id, status")
+    .in("id", idCheck.ids)
+    .eq("user_id", user.id);
+
+  if (readError) {
+    console.error("bulkUpdateLeadStatus: read failed", readError);
+    return bulkErrorResult(
+      "Could not load the selected leads. Please try again.",
+      idCheck.ids.length,
+    );
+  }
+
+  const plan = planBulkStatusChange(
+    rows ?? [],
+    idCheck.ids,
+    statusCheck.value,
+  );
+
+  if (plan.changedIds.length === 0) {
+    return summarizeBulkStatusChange({
+      requestedIds: idCheck.ids,
+      changedIds: [],
+      unchangedIds: plan.unchangedIds,
+      failedIds: plan.failedIds,
+      activityRecorded: true,
+    });
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("leads")
+    .update({ status: statusCheck.value })
+    .in("id", plan.changedIds)
+    .eq("user_id", user.id)
+    // Guards against a repeated request creating duplicate activities after
+    // another request already applied the same status.
+    .neq("status", statusCheck.value)
+    .select("id");
+
+  if (updateError) {
+    console.error("bulkUpdateLeadStatus: update failed", updateError);
+    return bulkErrorResult(
+      "Could not update the selected leads. Please try again.",
+      idCheck.ids.length,
+    );
+  }
+
+  const updatedIds = (updated ?? []).map((row) => row.id.toLowerCase());
+  const updatedSet = new Set(updatedIds);
+  const notUpdatedIds = plan.changedIds.filter((id) => !updatedSet.has(id));
+  const failedIds = [...new Set([...plan.failedIds, ...notUpdatedIds])];
+
+  const activityRecorded = await recordLeadActivities(
+    supabase,
+    user.id,
+    updatedIds,
+    "status_change",
+    buildBulkStatusActivityBody(statusCheck.value),
+  );
+
+  if (updatedIds.length > 0) {
+    revalidateSavedLeads();
+  }
+
+  return summarizeBulkStatusChange({
+    requestedIds: idCheck.ids,
+    changedIds: updatedIds,
+    unchangedIds: plan.unchangedIds,
+    failedIds,
+    activityRecorded,
+  });
+}
+
+/**
+ * Sets the same date, or clears the date, for every owned lead in the selection.
+ * Unchanged rows are skipped to avoid duplicate history entries.
+ */
+export async function bulkUpdateLeadFollowUp(
+  leadIds: string[],
+  nextFollowUpDate: string | null,
+): Promise<BulkLeadResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return bulkErrorResult("Sign in to update follow-ups.");
+  }
+
+  const idCheck = validateBulkLeadIds(leadIds);
+  if (!idCheck.ok) {
+    return bulkErrorResult(idCheck.message);
+  }
+
+  const cleaned = validateLeadFollowUpDate(nextFollowUpDate);
+  if (!cleaned.ok) {
+    return bulkErrorResult(cleaned.message, idCheck.ids.length);
+  }
+
+  const supabase = await createClient();
+  const { data: rows, error: readError } = await supabase
+    .from("leads")
+    .select("id, next_follow_up_date")
+    .in("id", idCheck.ids)
+    .eq("user_id", user.id);
+
+  if (readError) {
+    console.error("bulkUpdateLeadFollowUp: read failed", readError);
+    return bulkErrorResult(
+      "Could not load the selected leads. Please try again.",
+      idCheck.ids.length,
+    );
+  }
+
+  const plan = planBulkFollowUpChange(rows ?? [], idCheck.ids, cleaned.value);
+
+  if (plan.changedIds.length === 0) {
+    return summarizeBulkFollowUpChange({
+      requestedIds: idCheck.ids,
+      changedIds: [],
+      unchangedIds: plan.unchangedIds,
+      failedIds: plan.failedIds,
+      activityRecorded: true,
+      nextFollowUpDate: cleaned.value,
+    });
+  }
+
+  const update = supabase
+    .from("leads")
+    .update({ next_follow_up_date: cleaned.value })
+    .in("id", plan.changedIds)
+    .eq("user_id", user.id);
+
+  const guardedUpdate =
+    cleaned.value === null
+      ? update.not("next_follow_up_date", "is", null)
+      : update.or(
+          `next_follow_up_date.is.null,next_follow_up_date.neq.${cleaned.value}`,
+        );
+
+  const { data: updated, error: updateError } =
+    await guardedUpdate.select("id");
+
+  if (updateError) {
+    console.error("bulkUpdateLeadFollowUp: update failed", updateError);
+    return bulkErrorResult(
+      "Could not update the selected follow-ups. Please try again.",
+      idCheck.ids.length,
+    );
+  }
+
+  const updatedIds = (updated ?? []).map((row) => row.id.toLowerCase());
+  const updatedSet = new Set(updatedIds);
+  const notUpdatedIds = plan.changedIds.filter((id) => !updatedSet.has(id));
+  const failedIds = [...new Set([...plan.failedIds, ...notUpdatedIds])];
+  const activity = buildBulkFollowUpActivity(cleaned.value);
+  const activityRecorded = await recordLeadActivities(
+    supabase,
+    user.id,
+    updatedIds,
+    activity.kind,
+    activity.body,
+  );
+
+  if (updatedIds.length > 0) {
+    revalidateSavedLeads();
+  }
+
+  return summarizeBulkFollowUpChange({
+    requestedIds: idCheck.ids,
+    changedIds: updatedIds,
+    unchangedIds: plan.unchangedIds,
+    failedIds,
+    activityRecorded,
+    nextFollowUpDate: cleaned.value,
+  });
+}
+
+/**
+ * Deletes only the caller's lead rows. The database cascades dependent activity
+ * history and list memberships; shared businesses are never deleted here.
+ */
+export async function bulkDeleteLeads(
+  leadIds: string[],
+): Promise<BulkLeadResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return bulkErrorResult("Sign in to delete leads.");
+  }
+
+  const idCheck = validateBulkLeadIds(leadIds);
+  if (!idCheck.ok) {
+    return bulkErrorResult(idCheck.message);
+  }
+
+  const supabase = await createClient();
+  const { data: owned, error: readError } = await supabase
+    .from("leads")
+    .select("id")
+    .in("id", idCheck.ids)
+    .eq("user_id", user.id);
+
+  if (readError) {
+    console.error("bulkDeleteLeads: read failed", readError);
+    return bulkErrorResult(
+      "Could not load the selected leads. Please try again.",
+      idCheck.ids.length,
+    );
+  }
+
+  const ownedIds = (owned ?? []).map((row) => row.id.toLowerCase());
+
+  if (ownedIds.length === 0) {
+    return summarizeBulkDelete({
+      requestedIds: idCheck.ids,
+      deletedIds: [],
+      failedIds: idCheck.ids,
+    });
+  }
+
+  const { data: deleted, error: deleteError } = await supabase
+    .from("leads")
+    .delete()
+    .in("id", ownedIds)
+    .eq("user_id", user.id)
+    .select("id");
+
+  if (deleteError) {
+    console.error("bulkDeleteLeads: delete failed", deleteError);
+    return bulkErrorResult(
+      "Could not delete the selected leads. Please try again.",
+      idCheck.ids.length,
+    );
+  }
+
+  const deletedIds = (deleted ?? []).map((row) => row.id.toLowerCase());
+  const deletedSet = new Set(deletedIds);
+  const failedIds = idCheck.ids.filter((id) => !deletedSet.has(id));
+
+  if (deletedIds.length > 0) {
+    revalidateSavedLeads();
+  }
+
+  return summarizeBulkDelete({
+    requestedIds: idCheck.ids,
+    deletedIds,
+    failedIds,
+  });
 }

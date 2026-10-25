@@ -87,8 +87,9 @@ Tasks:
 - [x] Implement the lead detail drawer.
 - [x] Implement status changes.
 - [x] Add notes and activity history.
+- [x] Add page-scoped row selection and bulk status/follow-up updates.
+- [x] Add confirmed, owner-scoped bulk lead deletion.
 - [ ] Implement editing saved business/contact fields.
-- [ ] Implement authorized deletion if required.
 
 Acceptance criteria:
 
@@ -96,6 +97,9 @@ Acceptance criteria:
 - The same business cannot be duplicated for the same user.
 - Lead operations enforce ownership.
 - Notes and status changes are associated with the correct lead.
+- Bulk actions affect only selected, visible, owned leads.
+- Bulk deletion removes leads and dependent history without deleting shared
+  business records.
 
 ## Phase 5 — Follow-ups
 
