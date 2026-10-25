@@ -43,4 +43,5 @@ next-env.d.ts
 # Ignore dotenv files
 .env
 .env.*
+.env.local
 !.env.example

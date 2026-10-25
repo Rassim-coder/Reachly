@@ -9,6 +9,7 @@
 export const MAX_NAME_LENGTH = 300;
 export const MAX_SOURCE_ID_LENGTH = 200;
 export const MAX_TEXT_LENGTH = 500;
+export const MAX_NOTE_LENGTH = 2000;
 
 export type CleanBusiness = {
   sourceId: string;
@@ -127,19 +128,47 @@ export function collectBusinessesForBulkSave(
   return { businesses: [...unique.values()], failed };
 }
 
-/** Shape expected by the `businesses` upsert in the server action. */
-export function toBusinessRow(business: CleanBusiness) {
+/**
+ * Shape expected by `save_businesses_as_leads`. Keys are intentionally the
+ * application-level camelCase contract; the SQL function maps them into columns
+ * and never trusts a source name or user id from the client.
+ */
+export function toBusinessPayload(business: CleanBusiness) {
   return {
-    source: "overture",
-    source_id: business.sourceId,
+    sourceId: business.sourceId,
     name: business.name,
     category: business.category,
     address: business.address,
-    city: null,
     phone: business.phone,
     website: business.website,
     email: business.email,
     latitude: business.latitude,
     longitude: business.longitude,
   };
+}
+
+export type CleanNoteResult =
+  | { ok: true; value: string }
+  | { ok: false; message: string };
+
+/** Validates a user-entered lead note before it is written as an activity. */
+export function validateLeadNote(input: unknown): CleanNoteResult {
+  if (typeof input !== "string") {
+    return { ok: false, message: "Write a note before saving." };
+  }
+
+  const trimmed = input.trim();
+
+  if (trimmed === "") {
+    return { ok: false, message: "Write a note before saving." };
+  }
+
+  if (trimmed.length > MAX_NOTE_LENGTH) {
+    return {
+      ok: false,
+      message: `Notes cannot be longer than ${MAX_NOTE_LENGTH} characters.`,
+    };
+  }
+
+  return { ok: true, value: trimmed };
 }

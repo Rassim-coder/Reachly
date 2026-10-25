@@ -3,11 +3,13 @@ import { describe, test } from "node:test";
 
 import {
   MAX_NAME_LENGTH,
+  MAX_NOTE_LENGTH,
   MAX_SOURCE_ID_LENGTH,
   MAX_TEXT_LENGTH,
   collectBusinessesForBulkSave,
-  toBusinessRow,
+  toBusinessPayload,
   validateBusinessInput,
+  validateLeadNote,
   type CleanBusiness,
 } from "../../features/leads/validation.ts";
 
@@ -207,19 +209,46 @@ describe("bulk lead input collection", () => {
     });
   });
 
-  test("maps a clean business to the database row", () => {
-    assert.deepEqual(toBusinessRow(cleaned(base)), {
-      source: "overture",
-      source_id: base.sourceId,
+  test("maps a clean business to the RPC payload", () => {
+    assert.deepEqual(toBusinessPayload(cleaned(base)), {
+      sourceId: base.sourceId,
       name: base.name,
       category: base.category,
       address: base.address,
-      city: null,
       phone: base.phone,
       website: base.website,
       email: base.email,
       latitude: base.latitude,
       longitude: base.longitude,
+    });
+  });
+});
+
+describe("lead note validation", () => {
+  test("trims and accepts a non-empty note", () => {
+    assert.deepEqual(validateLeadNote("  Called, asked for a quote.  "), {
+      ok: true,
+      value: "Called, asked for a quote.",
+    });
+  });
+
+  test("accepts a note at the length limit", () => {
+    const note = "n".repeat(MAX_NOTE_LENGTH);
+
+    assert.deepEqual(validateLeadNote(note), { ok: true, value: note });
+  });
+
+  test("rejects empty, non-string, and overlong notes", () => {
+    for (const input of ["", "   ", null, undefined, 42]) {
+      assert.deepEqual(validateLeadNote(input), {
+        ok: false,
+        message: "Write a note before saving.",
+      });
+    }
+
+    assert.deepEqual(validateLeadNote("n".repeat(MAX_NOTE_LENGTH + 1)), {
+      ok: false,
+      message: `Notes cannot be longer than ${MAX_NOTE_LENGTH} characters.`,
     });
   });
 });

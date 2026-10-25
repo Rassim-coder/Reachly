@@ -23,7 +23,7 @@ Supabase Dashboard → Project Settings → API:
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | client + server | Publishable key; safe in the browser, RLS enforces access |
 | `NEXT_PUBLIC_SITE_URL` | server | Canonical site URL; preferred over request Origin for auth redirects |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Required for privileged server operations (e.g. upserting shared `businesses`). Never prefix with `NEXT_PUBLIC_`. Used by `lib/supabase/admin.ts`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Optional for other privileged server operations. Not required by the current lead-saving path, which uses the authenticated `save_businesses_as_leads` RPC. Never prefix with `NEXT_PUBLIC_`. `lib/supabase/admin.ts` remains available but is unused by lead saving. |
 
 `.env` is git-ignored; `.env.example` is committed.
 

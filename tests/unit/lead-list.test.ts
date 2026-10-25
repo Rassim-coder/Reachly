@@ -2,10 +2,18 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
+  isValidLeadId,
+  mapLeadActivityRow,
+  mapLeadDetailRow,
+  type LeadActivityRow,
+  type LeadDetailRow,
+} from "../../features/leads/lead-detail.ts";
+import {
   displayWebsite,
   formatLeadDate,
   formatLeadLocation,
   isHttpUrl,
+  isLeadStatus,
   LEAD_STATUS_LABELS,
   leadStatusLabel,
   mapLeadRow,
@@ -53,6 +61,16 @@ describe("lead status presentation", () => {
 
     for (const [status, label] of Object.entries(LEAD_STATUS_LABELS)) {
       assert.equal(leadStatusLabel(status as LeadStatus), label);
+    }
+  });
+
+  test("guards untrusted status values", () => {
+    for (const status of Object.keys(LEAD_STATUS_LABELS)) {
+      assert.equal(isLeadStatus(status), true);
+    }
+
+    for (const status of ["", "archived", "NEW", null, 42]) {
+      assert.equal(isLeadStatus(status), false);
     }
   });
 });
@@ -165,5 +183,81 @@ describe("lead row mapping", () => {
     assert.equal(mapLeadRow(row({ businesses: null })), null);
     assert.equal(mapLeadRow(row({ businesses: [] })), null);
     assert.equal(mapLeadRow(row({ businesses: business({ name: "   " }) })), null);
+  });
+});
+
+describe("lead detail mapping", () => {
+  const detailRow: LeadDetailRow = {
+    id: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    created_at: "2026-10-24T12:34:56.000Z",
+    status: "contacted",
+    last_contacted_at: "2026-10-24T15:00:00.000Z",
+    next_follow_up_date: "2026-10-30",
+    businesses: {
+      ...business(),
+      category: " dental_clinic ",
+    },
+  };
+
+  function activity(overrides: Partial<LeadActivityRow> = {}): LeadActivityRow {
+    return {
+      id: "b1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      kind: "note",
+      body: "  Asked for a quote. ",
+      created_at: "2026-10-24T16:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  test("maps business details, category, and note activities", () => {
+    assert.deepEqual(mapLeadDetailRow(detailRow, [activity()]), {
+      id: detailRow.id,
+      createdAt: detailRow.created_at,
+      businessName: "Clinique Dentaire",
+      phone: "+213 555 01 02",
+      email: "contact@example.dz",
+      website: "https://example.dz",
+      location: "12 Rue Didouche Mourad, Algiers",
+      status: "contacted",
+      lastContactedAt: "2026-10-24T15:00:00.000Z",
+      nextFollowUpDate: "2026-10-30",
+      category: "dental_clinic",
+      notes: [
+        {
+          id: "b1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          body: "Asked for a quote.",
+          createdAt: "2026-10-24T16:00:00.000Z",
+        },
+      ],
+    });
+  });
+
+  test("keeps only non-empty note activities", () => {
+    const mapped = mapLeadDetailRow(detailRow, [
+      activity(),
+      activity({ id: "c1", kind: "status_change", body: "contacted" }),
+      activity({ id: "c2", kind: "note", body: "   " }),
+      activity({ id: "c3", kind: "note", body: null }),
+    ]);
+
+    assert.equal(mapped?.notes.length, 1);
+    assert.equal(mapped?.notes[0]?.body, "Asked for a quote.");
+    assert.equal(mapLeadActivityRow(activity({ kind: "saved" })), null);
+  });
+
+  test("returns null when the lead's business cannot be mapped", () => {
+    assert.equal(
+      mapLeadDetailRow({ ...detailRow, businesses: null }, []),
+      null,
+    );
+  });
+
+  test("validates lead ids before querying", () => {
+    assert.equal(isValidLeadId(detailRow.id), true);
+    assert.equal(isValidLeadId(detailRow.id.toUpperCase()), true);
+
+    for (const value of ["", "not-a-uuid", "123", null, 42]) {
+      assert.equal(isValidLeadId(value), false);
+    }
   });
 });

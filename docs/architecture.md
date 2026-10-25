@@ -87,15 +87,23 @@ Search results should not automatically be inserted into Supabase.
 
 1. The authenticated user selects Save lead.
 2. The server verifies authentication and validates the submitted business identifier and data.
-3. The server resolves the source business record according to the approved schema.
-4. The server creates or retrieves the business record using a privileged
-   service-role client (`lib/supabase/admin.ts`), because the `businesses` table
-   has no client write policies.
-5. The server creates the user's lead without creating a duplicate.
-6. The server records the initial activity if required by the approved workflow.
-7. The UI updates only after the operation succeeds or returns an accurate result.
+3. The server validates the submitted business payload again and derives ownership
+   from the authenticated session (`auth.uid()` in the database function).
+4. The server calls `public.save_businesses_as_leads` with the authenticated
+   Supabase client. The function is proposed in
+   `docs/sql/save_lead_function.sql` and must be applied manually in the
+   Supabase SQL Editor; it is not part of the active migration history.
+5. The function inserts a shared business only if its `(source, source_id)` does
+   not exist. It never updates an existing shared business record, then creates
+   the user's lead using the existing `unique (user_id, business_id)` rule.
+6. The function returns counts for added, existing, and failed items. The UI
+   updates only after the operation succeeds or returns an accurate result.
 
-The business upsert, lead creation, and initial activity should be handled transactionally where practical. If multiple writes are used, failure and retry behavior must be explicitly addressed.
+The RPC is a hardened `SECURITY DEFINER` function with an empty fixed
+`search_path`, fully qualified object names, and execution granted only to
+`authenticated`. It replaces the previous service-role write path for saving.
+It does not prove that a new business payload originated from Overture; that
+trust limitation remains documented in `docs/database.md`.
 
 ## 6. Lead Management Flow
 

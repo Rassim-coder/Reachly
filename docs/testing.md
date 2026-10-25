@@ -2,14 +2,16 @@
 
 ## 1. Current status
 
-Unit tests exist for pure business-search, lead-validation, and My Leads mapping/presentation logic.
+Unit tests exist for pure business-search, lead validation, lead-saving result
+parsing, and My Leads mapping/presentation logic.
 
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
-- The local `.env` does not contain `SUPABASE_SERVICE_ROLE_KEY`, so lead-saving
-  persistence cannot currently be exercised end to end.
-- My Leads now has a read-only, authenticated query and list page, but its
-  user-scoped database reads are not yet proven by integration tests.
+- Lead saving now uses the proposed `save_businesses_as_leads` RPC instead of the
+  service-role client. The SQL script in `docs/sql/save_lead_function.sql` has
+  **not** been applied, so persistence remains unverified.
+- My Leads has an authenticated list, detail page, status update, and note
+  creation. None of those database paths are proven by integration tests.
 
 The suite uses Node's built-in test runner (`node:test`) and native TypeScript
 type stripping. It adds **no test framework dependency**. Tests were verified on
@@ -34,8 +36,9 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/result-filters.test.ts` | Website/phone/email presence filters, AND combinations, empty results, whitespace/null handling, active-filter detection, no mutation of loaded rows |
 | `tests/unit/cursor.test.ts` | Cursor round-trip, URL-safe encoding, release/version rejection, malformed payloads, bbox shape and ranges, category and keyset-ID validation, size limit, strict output shape |
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
-| `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, database row mapping |
-| `tests/unit/lead-list.test.ts` | Actual lead-status labels, UTC date formatting, address/city location formatting, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling |
+| `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation |
+| `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date formatting, address/city location formatting, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail and note mapping, lead id validation |
+| `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
 
 The lead validation was extracted from `features/leads/actions.ts` into
 `features/leads/validation.ts` so it can run without a Next.js request context.
@@ -58,16 +61,16 @@ These behaviors cannot be proven by the unit suite:
 
 ### Lead saving — `saveBusinessAsLead`
 
-- Unauthenticated caller receives the sign-in error.
-- Missing service-role configuration returns the configuration error without a
-  write.
-- `businesses` upsert is idempotent on `unique (source, source_id)`.
+- Applying `docs/sql/save_lead_function.sql` creates the RPC and the narrow
+  execution grants described in `docs/database.md`.
+- Unauthenticated direct RPC calls are rejected.
+- A new business is inserted once and never updated on a later save.
+- An existing shared business keeps its original contact fields when another
+  user saves it.
 - Lead creation inserts one owned lead and revalidation runs.
-- A second save hits `unique (user_id, business_id)`, returns `23505`, and is
-  reported as “already in your leads” without duplicating data.
+- A second save is reported as “already in your leads” without duplicating data.
 - An invalid input is rejected before any write.
-- Service-role credentials are used only server-side; clients cannot insert
-  shared business rows or another user's lead.
+- The function cannot be called by `anon` or `PUBLIC`.
 
 ### Bulk saving — `saveBusinessesAsLeads`
 
@@ -79,15 +82,19 @@ These behaviors cannot be proven by the unit suite:
 - A partial failure keeps saved rows saved and reports the remainder accurately.
 - One user's leads are never visible to another user.
 
-### My Leads read-only list
+### My Leads list, detail, status, and notes
 
-- Reads return only the signed-in user's leads.
-- Leads are returned newest first by `created_at`.
+- Reads return only the signed-in user's leads, newest first.
 - The embedded business join returns the expected name and contact fields.
-- The `lead_stats` view reflects inserted leads.
+- Opening a lead loads only the signed-in user's lead and its notes.
+- A status update uses one of the real `lead_status` values.
+- A note is inserted with `kind = 'note'` and the authenticated owner.
+- A user cannot read or mutate another user's lead or add a note to it.
 - RLS blocks cross-user reads and writes at the database level.
+- The `lead_stats` view reflects inserted leads.
 - A saved lead is visibly present after the save action.
-- Empty, query-failure, and loading states render without invented data.
+- Empty, query-failure, loading, and not-found states render without invented
+  data.
 
 ### Existing gaps also needing coverage later
 
@@ -191,19 +198,20 @@ now.
 ## 6. Known risks and limitations
 
 - Unit tests prove pure logic only. They do **not** validate PostgREST,
-  PostgreSQL constraints, RLS, auth, or server-action behavior.
-- The validation extraction is behavior-preserving, including the existing
-  message for over-length required fields: because the cleaner returns
-  `undefined`, an over-length source ID or name is reported as “missing” rather
-  than “invalid”. The test records this behavior; changing it is a product
-  decision.
-- Bulk save counts, duplicate handling, and service-role configuration remain
-  unverified against a live database.
+  PostgreSQL constraints, RLS, auth, the SECURITY DEFINER function, or
+  server-action behavior.
+- The validation extraction keeps the existing message for over-length required
+  fields: because the cleaner returns `undefined`, an over-length source ID or
+  name is reported as “missing” rather than “invalid”. The test records this
+  behavior; changing it is a product decision.
+- Bulk save counts, duplicate handling, function privileges, and shared-business
+  overwrite protection remain unverified against a live database.
 - No test currently covers `getCurrentUser`, the `UNAUTHENTICATED` path, route
   validation, DuckDB/Overture queries, or UI interactions.
 - Node's native TypeScript support does not type-check; `pnpm typecheck` and the
   build remain required.
 - Tests use concrete file lists in `package.json`; add new test files there when
   introducing them so they run on all platforms without shell glob expansion.
-- My Leads does not exist yet, so none of its query or display behavior can be
-  tested.
+- My Leads database reads, status updates, and notes are implemented but remain
+  unverified against a database. Only their pure mapping, status guard, and note
+  validation are covered.

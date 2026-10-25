@@ -91,7 +91,7 @@ Saving is implemented with authenticated Server Actions in `features/leads/actio
 - `saveBusinessAsLead(business)` saves one search result.
 - `saveBusinessesAsLeads(businesses)` saves an explicit user selection (up to 500 per request, chunked server-side).
 
-Both actions derive the user from the session, re-validate every field, upsert `businesses` on `unique (source, source_id)`, and rely on `unique (user_id, business_id)` for duplicate prevention. The service-role client is used only on the server because `businesses` has no client write policy. The bulk action reports added, already-existing, and failed counts separately; failures keep the selection available for retry. No RLS policy is bypassed for user-owned data.
+Both actions derive the user from the session and re-validate every field. They call the authenticated `save_businesses_as_leads` RPC, which is proposed in `docs/sql/save_lead_function.sql` and must be applied manually before saving works. The function inserts a business only when `(source, source_id)` is unused, never updates an existing shared business, and relies on `unique (user_id, business_id)` for duplicate prevention. The bulk action reports added, already-existing, and failed counts separately; failures keep the selection available for retry. The service-role client is no longer used for saving. No RLS policy is bypassed for user-owned data.
 
 ### Proposed endpoint
 

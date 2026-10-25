@@ -3,36 +3,70 @@
 import { revalidatePath } from "next/cache";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 import type { NormalizedBusiness } from "@/types/api";
 
+import { isLeadStatus } from "./lead-list";
+import { isValidLeadId } from "./lead-detail";
+import {
+  parseSaveLeadsRpcResult,
+  singleSaveMessage,
+  toBulkSaveResult,
+  type BulkSaveLeadsResult,
+  type SaveLeadResult,
+  type SaveLeadsOutcome,
+} from "./save-result";
 import {
   collectBusinessesForBulkSave,
-  toBusinessRow,
+  toBusinessPayload,
   validateBusinessInput,
+  validateLeadNote,
 } from "./validation";
 
 /**
- * Save a discovered business as the signed-in user's lead.
+ * Saving a discovered business is a shared-data operation, so it goes through
+ * the narrowly scoped `save_businesses_as_leads` database function rather than
+ * the service-role client. The function derives ownership from auth.uid(),
+ * never overwrites an existing shared business, and relies on the existing
+ * unique constraints for duplicates.
  *
- * `businesses` is shared reference data with no client-side write policy, so
- * the business row is upserted with the service-role client. The lead itself
- * belongs to the authenticated user, and `unique (user_id, business_id)`
- * prevents duplicates at the database level.
+ * All user-owned reads and mutations below use the authenticated Supabase
+ * client, so RLS remains in force.
  */
 
-export type SaveLeadResult =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
+export type { BulkSaveLeadsResult, SaveLeadResult };
 
-export type BulkSaveLeadsResult =
-  | { ok: true; added: number; existing: number; failed: number; total: number }
+export type LeadMutationResult =
+  | { ok: true; message: string }
   | { ok: false; message: string };
 
 /** Upper bound per bulk request; the client selects from results it has loaded. */
 const MAX_BULK_SAVE = 500;
-/** Keeps each upsert statement small so one bad row cannot fail an entire selection. */
+/** Keeps each RPC call and its transaction small. */
 const BULK_CHUNK_SIZE = 50;
+
+const RPC_UNAVAILABLE_MESSAGE =
+  "Saving leads is not configured yet. Apply docs/sql/save_lead_function.sql in Supabase first.";
+
+function isMissingSaveFunction(error: {
+  code?: string;
+  message?: string;
+}): boolean {
+  return (
+    error.code === "PGRST202" ||
+    error.code === "42883" ||
+    /could not find the function|function .* does not exist/i.test(
+      error.message ?? "",
+    )
+  );
+}
+
+function revalidateSavedLeads(leadId?: string) {
+  revalidatePath("/my-leads");
+  if (leadId) revalidatePath(`/my-leads/${leadId}`);
+  revalidatePath("/");
+}
 
 export async function saveBusinessAsLead(
   input: NormalizedBusiness,
@@ -49,57 +83,40 @@ export async function saveBusinessAsLead(
     return { ok: false, message: cleaned.message };
   }
 
-  let admin: ReturnType<typeof createAdminClient>;
-
-  try {
-    admin = createAdminClient();
-  } catch {
-    return {
-      ok: false,
-      message:
-        "Saving leads is not configured on this server (missing service-role key).",
-    };
-  }
-
-  const { data: business, error: businessError } = await admin
-    .from("businesses")
-    .upsert(toBusinessRow(cleaned.value), { onConflict: "source,source_id" })
-    .select("id")
-    .single();
-
-  if (businessError || !business) {
-    console.error("saveBusinessAsLead: business upsert failed", businessError);
-    return { ok: false, message: "Could not save the business. Please try again." };
-  }
-
-  const { error: leadError } = await admin.from("leads").insert({
-    user_id: user.id,
-    business_id: business.id,
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("save_businesses_as_leads", {
+    p_businesses: [toBusinessPayload(cleaned.value)] as Json,
   });
 
-  if (leadError) {
-    if (leadError.code === "23505") {
-      return { ok: true, message: "This business is already in your leads." };
+  if (error) {
+    if (isMissingSaveFunction(error)) {
+      return { ok: false, message: RPC_UNAVAILABLE_MESSAGE };
     }
 
-    console.error("saveBusinessAsLead: lead insert failed", leadError);
+    console.error("saveBusinessAsLead: RPC failed", error);
     return { ok: false, message: "Could not save this lead. Please try again." };
   }
 
-  revalidatePath("/my-leads");
-  revalidatePath("/");
+  const outcome = parseSaveLeadsRpcResult(data);
 
-  return { ok: true, message: "Saved to your leads." };
+  if (!outcome) {
+    console.error("saveBusinessAsLead: unexpected RPC result", data);
+    return { ok: false, message: "Could not save this lead. Please try again." };
+  }
+
+  if (outcome.added > 0) {
+    revalidateSavedLeads();
+  }
+
+  return singleSaveMessage(outcome);
 }
 
 /**
  * Save a user-selected batch of discovered businesses as leads.
  *
- * Reuses the same business upsert and the `unique (user_id, business_id)`
- * duplicate rule as the single-save action. Batches are chunked so one bad row
- * cannot fail the whole selection, and existing leads are counted before and
- * after the write so the counts reflect the resulting database state rather
- * than assumptions about which writes succeeded.
+ * Existing invalid inputs are counted as failures. Valid items are deduplicated
+ * by source id, split into chunks, and saved through the same RPC as a single
+ * save. One failed chunk does not discard the results of the others.
  */
 export async function saveBusinessesAsLeads(
   inputs: NormalizedBusiness[],
@@ -121,115 +138,143 @@ export async function saveBusinessesAsLeads(
     };
   }
 
-  let admin: ReturnType<typeof createAdminClient>;
+  const { businesses, failed: invalidInputs } =
+    collectBusinessesForBulkSave(inputs);
 
-  try {
-    admin = createAdminClient();
-  } catch {
+  if (businesses.length === 0) {
     return {
-      ok: false,
-      message:
-        "Saving leads is not configured on this server (missing service-role key).",
+      ok: true,
+      added: 0,
+      existing: 0,
+      failed: invalidInputs,
+      total: invalidInputs,
     };
   }
 
-  const {
-    businesses: businessesToSave,
-    failed: invalidInputs,
-  } = collectBusinessesForBulkSave(inputs);
+  const supabase = await createClient();
   let added = 0;
   let existing = 0;
   let failed = invalidInputs;
 
-  for (let start = 0; start < businessesToSave.length; start += BULK_CHUNK_SIZE) {
-    const chunk = businessesToSave.slice(start, start + BULK_CHUNK_SIZE);
+  for (let start = 0; start < businesses.length; start += BULK_CHUNK_SIZE) {
+    const chunk = businesses.slice(start, start + BULK_CHUNK_SIZE);
 
-    const { data: savedBusinesses, error: businessError } = await admin
-      .from("businesses")
-      .upsert(chunk.map(toBusinessRow), { onConflict: "source,source_id" })
-      .select("id, source_id");
+    const { data, error } = await supabase.rpc("save_businesses_as_leads", {
+      p_businesses: chunk.map(toBusinessPayload) as Json,
+    });
 
-    if (businessError) {
-      console.error("saveBusinessesAsLeads: business upsert failed", businessError);
+    if (error) {
+      if (isMissingSaveFunction(error)) {
+        return { ok: false, message: RPC_UNAVAILABLE_MESSAGE };
+      }
+
+      console.error("saveBusinessesAsLeads: RPC failed", error);
       failed += chunk.length;
       continue;
     }
 
-    const businessIds = (savedBusinesses ?? []).map((row) => row.id);
+    const outcome = parseSaveLeadsRpcResult(data);
 
-    if (businessIds.length !== chunk.length) {
-      failed += chunk.length - businessIds.length;
-    }
-
-    if (businessIds.length === 0) continue;
-
-    const { data: existingRows, error: existingError } = await admin
-      .from("leads")
-      .select("business_id")
-      .eq("user_id", user.id)
-      .in("business_id", businessIds);
-
-    if (existingError) {
-      console.error(
-        "saveBusinessesAsLeads: reading existing leads failed",
-        existingError,
-      );
-      failed += businessIds.length;
+    if (!outcome) {
+      console.error("saveBusinessesAsLeads: unexpected RPC result", data);
+      failed += chunk.length;
       continue;
     }
 
-    const before = new Set((existingRows ?? []).map((row) => row.business_id));
-    existing += before.size;
-
-    const missing = businessIds.filter((id) => !before.has(id));
-
-    if (missing.length > 0) {
-      // `ignoreDuplicates` maps to ON CONFLICT DO NOTHING, so a lead created by
-      // another request between the read above and this write is not an error.
-      const { error: leadError } = await admin.from("leads").upsert(
-        missing.map((businessId) => ({
-          user_id: user.id,
-          business_id: businessId,
-        })),
-        { onConflict: "user_id,business_id", ignoreDuplicates: true },
-      );
-
-      if (leadError) {
-        console.error("saveBusinessesAsLeads: lead insert failed", leadError);
-      }
-    }
-
-    const { data: afterRows, error: afterError } = await admin
-      .from("leads")
-      .select("business_id")
-      .eq("user_id", user.id)
-      .in("business_id", businessIds);
-
-    if (afterError) {
-      console.error(
-        "saveBusinessesAsLeads: verifying saved leads failed",
-        afterError,
-      );
-      failed += businessIds.length - before.size;
-      continue;
-    }
-
-    const after = new Set((afterRows ?? []).map((row) => row.business_id));
-
-    added += businessIds.filter((id) => after.has(id) && !before.has(id)).length;
-    failed += businessIds.filter((id) => !after.has(id)).length;
+    added += outcome.added;
+    existing += outcome.existing;
+    failed += outcome.failed;
   }
 
   if (added > 0) {
-    revalidatePath("/my-leads");
-    revalidatePath("/");
+    revalidateSavedLeads();
   }
 
-  return {
-    ok: true,
+  return toBulkSaveResult({
     added,
     existing,
     failed,
     total: added + existing + failed,
-  };
+  } satisfies SaveLeadsOutcome);
+}
+
+export async function updateLeadStatus(
+  leadId: string,
+  status: string,
+): Promise<LeadMutationResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { ok: false, message: "Sign in to update leads." };
+  }
+
+  if (!isValidLeadId(leadId) || !isLeadStatus(status)) {
+    return { ok: false, message: "The lead status update is invalid." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .update({ status })
+    .eq("id", leadId)
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("updateLeadStatus: update failed", error);
+    return { ok: false, message: "Could not update this lead. Please try again." };
+  }
+
+  if (!data) {
+    return { ok: false, message: "Lead not found." };
+  }
+
+  revalidateSavedLeads(leadId);
+
+  return { ok: true, message: "Lead status updated." };
+}
+
+export async function addLeadNote(
+  leadId: string,
+  body: string,
+): Promise<LeadMutationResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { ok: false, message: "Sign in to add notes." };
+  }
+
+  if (!isValidLeadId(leadId)) {
+    return { ok: false, message: "Lead not found." };
+  }
+
+  const cleaned = validateLeadNote(body);
+
+  if (!cleaned.ok) {
+    return { ok: false, message: cleaned.message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("lead_activities").insert({
+    lead_id: leadId,
+    user_id: user.id,
+    kind: "note",
+    body: cleaned.value,
+  });
+
+  if (error) {
+    // The composite (lead_id, user_id) foreign key and the insert policy both
+    // prevent attaching a note to another user's lead.
+    if (error.code === "23503" || error.code === "42501") {
+      return { ok: false, message: "Lead not found." };
+    }
+
+    console.error("addLeadNote: insert failed", error);
+    return { ok: false, message: "Could not add this note. Please try again." };
+  }
+
+  revalidateSavedLeads(leadId);
+
+  return { ok: true, message: "Note added." };
 }

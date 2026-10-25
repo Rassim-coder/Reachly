@@ -57,6 +57,14 @@ export function leadStatusLabel(status: LeadStatus): string {
   return LEAD_STATUS_LABELS[status] ?? "Unknown";
 }
 
+/** Runtime guard for untrusted form values before a status update. */
+export function isLeadStatus(value: unknown): value is LeadStatus {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(LEAD_STATUS_LABELS, value)
+  );
+}
+
 function cleanText(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
 

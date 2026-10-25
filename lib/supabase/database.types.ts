@@ -284,6 +284,10 @@ export type Database = {
       }
     }
     Functions: {
+      save_businesses_as_leads: {
+        Args: { p_businesses: Json }
+        Returns: Json
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }

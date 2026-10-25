@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card, CardHeader } from "@/components/ui/page-shell";
 
 import {
@@ -18,7 +20,7 @@ const statusStyles: Record<LeadStatus, string> = {
   follow_up: "border-violet-500/40 bg-violet-500/10 text-violet-300",
 };
 
-function StatusBadge({ status }: { status: LeadStatus }) {
+export function StatusBadge({ status }: { status: LeadStatus }) {
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusStyles[status]}`}
@@ -80,7 +82,12 @@ export function LeadList({ leads }: { leads: LeadListItem[] }) {
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[13px] font-semibold">{lead.businessName}</p>
+                <Link
+                  href={`/my-leads/${lead.id}`}
+                  className="text-[13px] font-semibold underline-offset-4 hover:underline"
+                >
+                  {lead.businessName}
+                </Link>
                 <StatusBadge status={lead.status} />
               </div>
 
@@ -92,6 +99,13 @@ export function LeadList({ leads }: { leads: LeadListItem[] }) {
 
               <p className="mt-1.5 text-[11px] text-faint">
                 Saved {formatLeadDate(lead.createdAt) ?? "—"}
+                {" · "}
+                <Link
+                  href={`/my-leads/${lead.id}`}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  View details
+                </Link>
               </p>
             </div>
 
