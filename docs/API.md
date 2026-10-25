@@ -171,9 +171,12 @@ The implementation must support:
 - Clearing a scheduled follow-up.
 - Completing a follow-up.
 
-My Leads currently supports scheduling, changing, clearing, and completing the
-single pending date per lead. A dedicated Follow-ups queue API is not implemented.
-The data model decision about one date versus multiple tasks per lead remains open.
+My Leads supports scheduling, changing, clearing, and completing the single
+pending date per lead. A dedicated Follow-ups page reads the authenticated user's
+scheduled leads on the server, groups them into Overdue, Today, and Upcoming, and
+reuses `updateLeadFollowUp` and `completeLeadFollowUp`. The current UI does not
+need a separate `/api/follow-ups` route. The data model decision about one date
+versus multiple tasks per lead remains open.
 
 ## 6. Error Format
 

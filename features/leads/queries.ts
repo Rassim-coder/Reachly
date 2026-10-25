@@ -24,10 +24,10 @@ import {
 } from "./lead-list";
 
 /**
- * Fields needed by the My Leads list. The embedded business is a many-to-one
- * join through `leads.business_id`.
+ * Fields needed by the My Leads list and the Follow-ups queue. The embedded
+ * business is a many-to-one join through `leads.business_id`.
  */
-function leadListSelect(innerJoin: boolean): string {
+export function leadListSelect(innerJoin: boolean): string {
   const relation = innerJoin
     ? "businesses!leads_business_id_fkey!inner"
     : "businesses!leads_business_id_fkey";
