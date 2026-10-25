@@ -43,7 +43,7 @@ Implementation status (verified):
 - Pinned Overture release: `2026-10-21.0`, using `taxonomy.primary`. The previously planned `2026-08-19.0` is no longer published and the September 2026 schema removed `categories`; no runtime fallback exists, and a schema check fails loudly on mismatch.
 - `duckdb-async` is loaded at runtime with `createRequire` and listed in `serverExternalPackages`, because Turbopack cannot trace the native `duckdb` package.
 - One in-memory DuckDB database is shared per process, each search gets its own connection, and searches are serialized. A 120-second application timeout does not guarantee hosting-platform support.
-- Result limit is 50 (`nextCursor` is always `null`; pagination is not implemented).
+- Result limit is 50 per request. Keyset pagination uses the opaque `nextCursor` returned by each response.
 
 Search should run server-side. The implementation must be tested against the selected hosting runtime; only a local Node process has been verified.
 
@@ -78,10 +78,20 @@ Responsibilities:
 5. DuckDB queries the selected Overture release.
 6. Results are normalized into the application's business type.
 7. The endpoint returns a limited result set.
-8. The dashboard displays the results.
-9. The user may choose to save a business as a lead.
+8. The dashboard displays the results and keeps a versioned, size-bounded snapshot
+   of the last successful search in `sessionStorage`.
+9. Reloading the tab restores the criteria, loaded results, next cursor, filters,
+   and validated selections without re-running Overture. Restored results are
+   labelled and expire after 24 hours.
+10. A new search keeps the previous results visible until the new request
+    succeeds. A failed request does not replace them.
+11. "Clear results" removes only the temporary browser snapshot; it never
+    deletes saved leads or changes Supabase records.
+12. The user may choose to save a business as a lead.
 
-Search results should not automatically be inserted into Supabase.
+Search results should not automatically be inserted into Supabase. The temporary
+search snapshot is not a database cache and is not written to `businesses` or
+`leads`.
 
 ## 5. Save Lead Flow
 

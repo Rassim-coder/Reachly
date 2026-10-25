@@ -2,8 +2,8 @@
 
 ## 1. Current status
 
-Unit tests exist for pure business-search, lead validation, lead-saving result
-parsing, and My Leads mapping/presentation logic.
+Unit tests exist for pure business-search, temporary search persistence, lead
+validation, lead-saving result parsing, and My Leads mapping/presentation logic.
 
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
@@ -36,6 +36,7 @@ DuckDB, network access, a browser, or environment variables.
 | File | Behavior covered |
 |---|---|
 | `tests/unit/result-filters.test.ts` | Website/phone/email presence filters, AND combinations, empty results, whitespace/null handling, active-filter detection, no mutation of loaded rows |
+| `tests/unit/search-session.test.ts` | Search snapshot round-trip for criteria/results/filters/pagination, stale selected-ID pruning, malformed/expired cache rejection, criteria-only size fallback, quota failure behavior, empty-result restoration, and clearing only the temporary search key |
 | `tests/unit/cursor.test.ts` | Cursor round-trip, URL-safe encoding, release/version rejection, malformed payloads, bbox shape and ranges, category and keyset-ID validation, size limit, strict output shape |
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
 | `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation, follow-up date validation |
@@ -131,6 +132,9 @@ These behaviors cannot be proven by the unit suite:
 - Overture/DuckDB queries and release-schema guard (network and native runtime).
 - Browser interaction: business-result selection, select-all, filters, Load more
   persistence, and bulk-save states.
+- Browser reload restoration: no automatic search, restored-results labelling,
+  criteria-only fallback, expired/invalid snapshot handling, and Clear results
+  leaving saved leads untouched.
 - “Load more” continuation against real Overture data.
 
 ## 5. Safe Supabase test strategy
