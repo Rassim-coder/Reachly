@@ -2,13 +2,18 @@
 
 ## 1. Current status
 
-Unit tests exist for pure business-search and lead-validation logic.
+Unit tests exist for pure business-search, temporary search persistence, lead
+validation, lead-saving result parsing, and My Leads mapping/presentation logic.
 
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
-- The local `.env` does not contain `SUPABASE_SERVICE_ROLE_KEY`, so lead-saving
-  persistence cannot currently be exercised end to end.
-- My Leads is still a placeholder page, so there is no page-level query to test.
+- Lead saving uses the `save_businesses_as_leads` RPC instead of the service-role
+  client. The function is installed in the development project, but no automated
+  database integration test verifies it and no production verification is claimed.
+- My Leads has an authenticated, filtered, paginated list; a detail drawer;
+  status, note, and follow-up updates; activity history; page-scoped selection;
+  bulk status/follow-up updates; and bulk deletion. None of those database paths
+  are proven by integration tests.
 
 The suite uses Node's built-in test runner (`node:test`) and native TypeScript
 type stripping. It adds **no test framework dependency**. Tests were verified on
@@ -31,9 +36,14 @@ DuckDB, network access, a browser, or environment variables.
 | File | Behavior covered |
 |---|---|
 | `tests/unit/result-filters.test.ts` | Website/phone/email presence filters, AND combinations, empty results, whitespace/null handling, active-filter detection, no mutation of loaded rows |
+| `tests/unit/search-session.test.ts` | Search snapshot round-trip for criteria/results/filters/pagination, stale selected-ID pruning, malformed/expired cache rejection, criteria-only size fallback, quota failure behavior, empty-result restoration, and clearing only the temporary search key |
 | `tests/unit/cursor.test.ts` | Cursor round-trip, URL-safe encoding, release/version rejection, malformed payloads, bbox shape and ranges, category and keyset-ID validation, size limit, strict output shape |
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
-| `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, database row mapping |
+| `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation, follow-up date validation |
+| `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date and timestamp formatting, category/location formatting, follow-up states, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail, notes and activity mapping, lead id validation |
+| `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
+| `tests/unit/lead-bulk.test.ts` | Page-scoped select/deselect and indeterminate state, selection pruning, empty/invalid/oversized ids, status validation, changed/unchanged/missing-row planning, status and follow-up summaries, partial failures, batched activity payloads, delete confirmation copy, full/partial/failed deletion results |
+| `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
 
 The lead validation was extracted from `features/leads/actions.ts` into
 `features/leads/validation.ts` so it can run without a Next.js request context.
@@ -56,16 +66,16 @@ These behaviors cannot be proven by the unit suite:
 
 ### Lead saving — `saveBusinessAsLead`
 
-- Unauthenticated caller receives the sign-in error.
-- Missing service-role configuration returns the configuration error without a
-  write.
-- `businesses` upsert is idempotent on `unique (source, source_id)`.
+- Applying `docs/sql/save_lead_function.sql` creates the RPC and the narrow
+  execution grants described in `docs/database.md`.
+- Unauthenticated direct RPC calls are rejected.
+- A new business is inserted once and never updated on a later save.
+- An existing shared business keeps its original contact fields when another
+  user saves it.
 - Lead creation inserts one owned lead and revalidation runs.
-- A second save hits `unique (user_id, business_id)`, returns `23505`, and is
-  reported as “already in your leads” without duplicating data.
+- A second save is reported as “already in your leads” without duplicating data.
 - An invalid input is rejected before any write.
-- Service-role credentials are used only server-side; clients cannot insert
-  shared business rows or another user's lead.
+- The function cannot be called by `anon` or `PUBLIC`.
 
 ### Bulk saving — `saveBusinessesAsLeads`
 
@@ -77,20 +87,54 @@ These behaviors cannot be proven by the unit suite:
 - A partial failure keeps saved rows saved and reports the remainder accurately.
 - One user's leads are never visible to another user.
 
-### My Leads (when implemented)
+### My Leads list, drawer, status, notes, and follow-ups
 
-- Reads return only the signed-in user's leads.
-- Ordering, filters, and pagination follow the agreed contract.
-- The `lead_stats` view reflects inserted leads.
+- Filtered and paginated reads return only the signed-in user's leads.
+- Search, category, status, follow-up, and sort combinations return the expected
+  rows and accurate counts.
+- The embedded business join returns the expected name and contact fields.
+- Opening a lead loads only the signed-in user's lead, notes, and activities.
+- A status update uses one of the real `lead_status` values and records an
+  activity.
+- A note is inserted with `kind = 'note'` and the authenticated owner.
+- Follow-ups can be scheduled, changed, cleared, and completed; the latter two
+  record the correct activity kind.
+- Overdue, due-today, upcoming, and unscheduled dates render correctly.
+- A user cannot read or mutate another user's lead, notes, or follow-ups.
 - RLS blocks cross-user reads and writes at the database level.
+- The `lead_stats` view reflects inserted leads.
 - A saved lead is visibly present after the save action.
+- Empty, query-failure, loading, and not-found states render without invented
+  data.
+
+### Bulk My Leads actions
+
+- Select-all checks only the current page; changing filters or pages prunes ids
+  that are no longer visible.
+- Bulk status updates validate the real enum and record one activity per changed
+  lead, with no activity for rows already at that status.
+- Bulk follow-up scheduling, rescheduling, and clearing update only owned rows
+  and record the compatible activity kinds.
+- Bulk deletion removes only the caller's leads, keeps shared businesses, and
+  lets the existing activity/list-membership cascades do their documented work.
+- A second user cannot select, update, or delete the first user's lead by id.
+- Partial update/activity/delete failures return counts that match the final
+  rows.
+- Deleting the final rows on a page moves the list to a valid page and clears
+  deleted ids from selection.
+- Rapid repeated submissions do not create duplicate activities.
+- The delete confirmation, selection toolbar, indeterminate header checkbox,
+  mobile wrapping, and drawer refresh are browser-verified.
 
 ### Existing gaps also needing coverage later
 
 - Search route validation and pagination edge cases.
 - Overture/DuckDB queries and release-schema guard (network and native runtime).
-- Browser interaction: selection, select-all, filters, Load more persistence,
-  bulk-save states.
+- Browser interaction: business-result selection, select-all, filters, Load more
+  persistence, and bulk-save states.
+- Browser reload restoration: no automatic search, restored-results labelling,
+  criteria-only fallback, expired/invalid snapshot handling, and Clear results
+  leaving saved leads untouched.
 - “Load more” continuation against real Overture data.
 
 ## 5. Safe Supabase test strategy
@@ -187,19 +231,25 @@ now.
 ## 6. Known risks and limitations
 
 - Unit tests prove pure logic only. They do **not** validate PostgREST,
-  PostgreSQL constraints, RLS, auth, or server-action behavior.
-- The validation extraction is behavior-preserving, including the existing
-  message for over-length required fields: because the cleaner returns
-  `undefined`, an over-length source ID or name is reported as “missing” rather
-  than “invalid”. The test records this behavior; changing it is a product
-  decision.
-- Bulk save counts, duplicate handling, and service-role configuration remain
-  unverified against a live database.
+  PostgreSQL constraints, RLS, auth, the SECURITY DEFINER function, or
+  server-action behavior.
+- The validation extraction keeps the existing message for over-length required
+  fields: because the cleaner returns `undefined`, an over-length source ID or
+  name is reported as “missing” rather than “invalid”. The test records this
+  behavior; changing it is a product decision.
+- Bulk save counts, duplicate handling, function privileges, and shared-business
+  overwrite protection remain unverified against a live database.
+- Bulk lead status, follow-up, delete, activity, ownership, and RLS behavior
+  remain unverified against an authenticated database session. Only validation,
+  planning, activity payloads, result messages, and pure selection logic are
+  covered.
 - No test currently covers `getCurrentUser`, the `UNAUTHENTICATED` path, route
   validation, DuckDB/Overture queries, or UI interactions.
 - Node's native TypeScript support does not type-check; `pnpm typecheck` and the
   build remain required.
 - Tests use concrete file lists in `package.json`; add new test files there when
   introducing them so they run on all platforms without shell glob expansion.
-- My Leads does not exist yet, so none of its query or display behavior can be
-  tested.
+- My Leads reads, filters, pagination, status updates, notes, follow-ups,
+  activities, bulk mutations, and deletion are implemented but remain unverified
+  against a database. Only their pure mapping, filtering, validation, planning,
+  and presentation logic are covered.

@@ -99,7 +99,8 @@ Verify the actual field names and availability before implementing normalization
 - Persist a business only when the user explicitly saves it as a lead (individually or as part of a bulk selection).
 - Preserve a stable source identifier when the source provides one.
 - Decide how to handle records with missing identifiers.
-- Follow the approved business upsert and duplicate-lead rules.
+- Follow the approved insert-only business-saving and duplicate-lead rules in
+  `docs/sql/save_lead_function.sql`.
 
 ## 8. Performance and Reliability
 

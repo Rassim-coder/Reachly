@@ -8,13 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/unit/result-filters.test.ts tests/unit/cursor.test.ts tests/unit/normalize.test.ts tests/unit/lead-validation.test.ts"
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/unit/result-filters.test.ts tests/unit/search-session.test.ts tests/unit/cursor.test.ts tests/unit/normalize.test.ts tests/unit/lead-validation.test.ts tests/unit/lead-list.test.ts tests/unit/lead-filters.test.ts tests/unit/lead-bulk.test.ts tests/unit/lead-save-result.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "duckdb-async": "^1.4.2",
-    "next": "16.4.0",
+    "next": "16.4.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
@@ -24,7 +24,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.0",
+    "eslint-config-next": "16.4.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

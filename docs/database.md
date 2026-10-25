@@ -82,7 +82,8 @@ Shared reference data. Records are persisted **only** when a user explicitly sav
 
 Constraints and indexes:
 
-- `unique (source, source_id)` — the canonical business identity for upserts.
+- `unique (source, source_id)` — the canonical business identity used by the
+  lead-saving function to avoid duplicate records without updating existing ones.
 - `businesses_category_idx`, `businesses_city_idx`, `businesses_name_trgm_idx`
   support search and filtering.
 
@@ -101,24 +102,29 @@ Constraints and indexes:
 Constraints and indexes:
 
 - **`unique (user_id, business_id)`** — one lead per user per business; this is
-  the duplicate-prevention rule. Server-side saves must upsert on this key.
+  the duplicate-prevention rule. The lead-saving function inserts with
+  `on conflict do nothing` on this key.
 - `unique (id, user_id)` — redundant with the primary key; required as the
   target of the composite ownership foreign keys on `lead_activities` and
   `list_leads`.
 - Indexes on `(user_id, created_at desc)`, `business_id`, `(user_id, status)`,
   and a partial index on `(user_id, next_follow_up_date) where next_follow_up_date is not null`.
+- Deleting a lead cascades its `lead_activities` and `list_leads` rows. The
+  `leads.business_id` restriction applies in the other direction, so deleting a
+  lead never deletes the shared `businesses` record. The active bulk-delete
+  action relies on this behavior without adding a migration.
 
 ⚠ `next_follow_up_date` is a **`date`**, not a timestamp: follow-ups have a day
 but no time of day. The follow-up queue must not assume a time.
 
 **Open design decision:** follow-ups are a single pending date per lead. There is
 no `follow_ups` table, so a lead cannot hold multiple scheduled tasks — see
-`docs/API.md` §5.
+`docs/API.md` §5. The current My Leads workflow uses this single-date model.
 
 ### 2.5 `lead_activities`
 
-Append-only history: `saved`, `note`, `status_change`, `follow_up_scheduled`,
-`follow_up_completed`.
+History: `saved`, `note`, `status_change`, `follow_up_scheduled`,
+`follow_up_completed`, `follow_up_cleared`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -207,11 +213,40 @@ Notes:
 - Policies are scoped `to authenticated`; `anon` has no access to any table.
 - `(select auth.uid())` is used instead of a direct `auth.uid()` call so the
   value is evaluated once per statement instead of per row.
-- `businesses` has **no client-side write policies**. Shared business records are
-  inserted and updated through server-side privileged operations using the
-  service-role key (`lib/supabase/admin.ts`).
+- `businesses` has **no client-side write policies**. Shared business records can
+  only be inserted through the narrowly scoped `save_businesses_as_leads`
+  database function described below.
 - RLS is the second line of defense. Server-side operations must still verify
   the session — never trust a client-supplied user id.
+
+### 4.1 Lead-saving function (proposed, not applied)
+
+`docs/sql/save_lead_function.sql` contains a complete standalone script for manual
+execution in the Supabase SQL Editor. It is **not** in `supabase/migrations/` and
+has **not** been applied to the hosted project as part of this change.
+
+The function:
+
+- derives the user from `auth.uid()` and rejects unauthenticated callers;
+- validates the JSON array, field types, lengths, and coordinate ranges;
+- inserts a new `businesses` row only when `(source, source_id)` is unused, using
+  `on conflict do nothing` so an existing shared record is never overwritten;
+- creates a lead with `on conflict (user_id, business_id) do nothing`;
+- returns deterministic `added`, `existing`, `failed`, and `total` counts;
+- runs as `SECURITY DEFINER` with `search_path = ''`, fully qualified names, and
+  an explicit `postgres` owner;
+- revokes execution from `PUBLIC`, `anon`, and `authenticated`, then grants it
+  only to `authenticated`.
+
+**Remaining trust limitation:** SQL validation does not prove that a new business
+payload came from Overture. A user can still create a previously unseen
+fabricated shared business row. The function prevents overwriting existing
+shared contact details, but source authenticity requires a separate design.
+
+Until the script is applied, save actions return a configuration message and
+will not write. The application type declaration for the RPC was added manually
+to `lib/supabase/database.types.ts`; regenerate types after applying the
+function.
 
 ## 5. Type generation
 
@@ -226,8 +261,13 @@ pnpm dlx supabase gen types typescript --project-id <ref> --schema public \
 ## 6. Verification status
 
 Inspection was read-only, through the Supabase MCP server and PostgREST with the
-publishable key (2026-10-19 to 2026-10-20). The hosted database has 0 rows and
-0 `auth.users`, so every structural probe was safe.
+publishable key (2026-10-19 to 2026-10-20). The business/lead tables were empty,
+so every structural probe was safe.
+
+**Current implementation note (2026-10-24):** the
+`save_businesses_as_leads` function and its type declaration are proposed/local
+only. The function has not been applied to the hosted database, and no live save
+or RLS-isolation test has been run.
 
 **Verified against the hosted project:**
 

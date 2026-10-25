@@ -84,14 +84,32 @@ The exact request fields may need to expand to support filters or pagination.
 
 ## 3. Saved Leads
 
-### Current implementation — server actions
+### Saving — implemented server actions
 
 Saving is implemented with authenticated Server Actions in `features/leads/actions.ts`, not with the HTTP endpoints below:
 
 - `saveBusinessAsLead(business)` saves one search result.
 - `saveBusinessesAsLeads(businesses)` saves an explicit user selection (up to 500 per request, chunked server-side).
 
-Both actions derive the user from the session, re-validate every field, upsert `businesses` on `unique (source, source_id)`, and rely on `unique (user_id, business_id)` for duplicate prevention. The service-role client is used only on the server because `businesses` has no client write policy. The bulk action reports added, already-existing, and failed counts separately; failures keep the selection available for retry. No RLS policy is bypassed for user-owned data.
+Both actions derive the user from the session and re-validate every field. They call the authenticated `save_businesses_as_leads` RPC, which is proposed in `docs/sql/save_lead_function.sql` and must be applied manually before saving works. The function inserts a business only when `(source, source_id)` is unused, never updates an existing shared business, and relies on `unique (user_id, business_id)` for duplicate prevention. The bulk action reports added, already-existing, and failed counts separately; failures keep the selection available for retry. The service-role client is no longer used for saving. No RLS policy is bypassed for user-owned data.
+
+### My Leads reads and mutations — implemented server actions
+
+The current UI uses authenticated Server Actions instead of the proposed HTTP routes:
+
+- `loadMyLeads(filters)` returns the filtered, sorted, paginated list and total count.
+- `loadLeadDetails(leadId)` returns one owned lead with its 50 most recent activities.
+- `updateLeadStatus`, `updateLeadFollowUp`, and `completeLeadFollowUp` mutate one owned lead and record compatible activities.
+- `addLeadNote` appends a note owned by the authenticated user.
+- `bulkUpdateLeadStatus(leadIds, status)` applies one real `lead_status` value to the selection.
+- `bulkUpdateLeadFollowUp(leadIds, date | null)` sets or clears the existing single follow-up date.
+- `bulkDeleteLeads(leadIds)` deletes only the caller's `leads` rows.
+
+Bulk actions accept at most 100 submitted ids per request and deduplicate valid UUIDs before use. The server validates every id and value, derives ownership from the session, filters reads and writes by `user_id`, and still relies on RLS. Unchanged rows are skipped so they do not receive duplicate status or follow-up activities. Successful changes insert one batched activity array rather than one request per lead. Delete cascades the existing `lead_activities` and `list_leads` relationships, but never deletes shared `businesses` records.
+
+Bulk results report a message, success/warning/error tone, requested count, affected ids, unchanged ids, and failed ids. A partial failure is reported as a warning and does not hide rows that were successfully changed. Network, authentication, validation, and database failures return an explicit error.
+
+These actions and their ownership behavior remain unverified against an authenticated database session. Unit tests cover pure validation, planning, activity payloads, and result summaries only.
 
 ### Proposed endpoint
 
@@ -131,7 +149,8 @@ Updates permitted lead fields, such as status or follow-up date.
 
 Deletes a lead owned by the authenticated user, subject to the approved deletion and activity-retention behavior.
 
-These routes are proposed, not implemented.
+These routes are proposed, not implemented. The current My Leads UI uses
+authenticated Server Actions for reads and mutations instead.
 
 ## 4. Lead Activities
 
@@ -139,7 +158,7 @@ Possible operations:
 - List activities for a lead.
 - Add a note.
 - Record a status change.
-- Record follow-up scheduling or completion.
+- Record follow-up scheduling, clearing, or completion.
 
 All operations must verify that the lead belongs to the authenticated user.
 
@@ -149,9 +168,12 @@ The implementation must support:
 - Listing upcoming and overdue follow-ups.
 - Scheduling a follow-up.
 - Rescheduling a follow-up.
+- Clearing a scheduled follow-up.
 - Completing a follow-up.
 
-The API design must be finalized after deciding whether one pending follow-up date per lead is sufficient or multiple tasks per lead are required.
+My Leads currently supports scheduling, changing, clearing, and completing the
+single pending date per lead. A dedicated Follow-ups queue API is not implemented.
+The data model decision about one date versus multiple tasks per lead remains open.
 
 ## 6. Error Format
 

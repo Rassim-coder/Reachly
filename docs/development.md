@@ -23,7 +23,7 @@ Supabase Dashboard → Project Settings → API:
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | client + server | Publishable key; safe in the browser, RLS enforces access |
 | `NEXT_PUBLIC_SITE_URL` | server | Canonical site URL; preferred over request Origin for auth redirects |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Required for privileged server operations (e.g. upserting shared `businesses`). Never prefix with `NEXT_PUBLIC_`. Used by `lib/supabase/admin.ts`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Optional for other privileged server operations. Not required by the current lead-saving path, which uses the authenticated `save_businesses_as_leads` RPC. Never prefix with `NEXT_PUBLIC_`. `lib/supabase/admin.ts` remains available but is unused by lead saving. |
 
 `.env` is git-ignored; `.env.example` is committed.
 
@@ -136,10 +136,14 @@ Empty directories are held with a `.gitkeep` until they contain real code.
 ## 8. Current status
 
 Implemented: repository structure, Supabase client/auth wiring, initial schema
-migration, dashboard shell with auth guard, placeholder routes.
+migration, dashboard shell with auth guard, Overture business search with
+reload-safe temporary result restoration, saving businesses as leads, and My
+Leads with filters, pagination, a detail drawer, status updates, notes, activity
+history, follow-up dates, page-scoped row selection, bulk status/follow-up
+changes, and authorized bulk deletion.
 
-Not implemented: Overture search, lead persistence, follow-ups, lists,
-templates, settings persistence, analytics, and AI. The placeholder pages
-state this explicitly and render no mock data.
+Not implemented: a dedicated Follow-ups queue, lists, templates, settings
+persistence, analytics, and AI. The remaining placeholder pages state this
+explicitly and render no mock data.
 
 See `PROJECT_BRIEF.md` §11 and `docs/roadmap.md` for the authoritative status.

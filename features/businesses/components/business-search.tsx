@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 
 import { BookmarkIcon, SearchIcon } from "@/components/ui/icons";
 import { Card, CardHeader, EmptyState } from "@/components/ui/page-shell";
@@ -17,13 +23,19 @@ import type {
   NormalizedBusiness,
 } from "@/types/api";
 
+import {
+  DEFAULT_SEARCH_FILTERS,
+  clearSearchSession,
+  readSearchSession,
+  writeSearchSession,
+  type RestoredSearchSession,
+  type SearchQuery,
+  type SearchSessionStorage,
+} from "../search-session";
 import { SaveLeadButton } from "./save-lead-button";
-
-type SearchQuery = { niche: string; location: string };
 
 type SearchState =
   | { status: "idle" }
-  | { status: "loading" }
   | {
       status: "success";
       query: SearchQuery;
@@ -32,8 +44,33 @@ type SearchState =
       firstElapsedMs: number;
       loadingMore: boolean;
       moreError: string | null;
-    }
-  | { status: "error"; message: string };
+      restored: boolean;
+    };
+
+function getSessionStorage(): SearchSessionStorage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+const subscribeToHydration = () => () => {};
+const getClientHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
+
+/**
+ * `sessionStorage` is client-only, so the server and first hydration render
+ * must not depend on it. This flag forces one client render after hydration,
+ * where the lazy state initializers below can read the saved session safely.
+ */
+function useHydrated() {
+  return useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot,
+  );
+}
 
 const inputClasses =
   "h-[38px] w-full rounded-xl border border-line bg-field px-3 text-[13px] text-foreground placeholder:text-faint focus:border-[#6d3ff0] focus:outline-none";
@@ -78,26 +115,69 @@ function PresenceFilterSelect({
 }
 
 /**
- * Live Overture business search. Calls `POST /api/businesses/search`; nothing
- * is cached or persisted until the user saves a business as a lead (individually
- * or through the bulk selection toolbar).
+ * Live Overture business search. Calls `POST /api/businesses/search` and keeps
+ * a bounded, temporary snapshot of the last successful search in
+ * `sessionStorage` so reloads do not need to re-query Overture. Search results
+ * never become leads unless the user explicitly saves them.
  */
 export function BusinessSearch() {
-  const [niche, setNiche] = useState("");
-  const [location, setLocation] = useState("");
-  const [state, setState] = useState<SearchState>({ status: "idle" });
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [websiteFilter, setWebsiteFilter] = useState<PresenceFilter>("all");
-  const [phoneFilter, setPhoneFilter] = useState<PresenceFilter>("all");
-  const [emailFilter, setEmailFilter] = useState<PresenceFilter>("all");
+  const hydrated = useHydrated();
+  const [initialSession] = useState<RestoredSearchSession | null>(() => {
+    if (typeof window === "undefined") return null;
+
+    const storage = getSessionStorage();
+    return storage ? readSearchSession(storage) : null;
+  });
+  const [niche, setNiche] = useState(
+    () => initialSession?.query.niche ?? "",
+  );
+  const [location, setLocation] = useState(
+    () => initialSession?.query.location ?? "",
+  );
+  const [state, setState] = useState<SearchState>(() => {
+    if (initialSession && initialSession.results !== null) {
+      return {
+        status: "success",
+        query: initialSession.query,
+        results: initialSession.results,
+        nextCursor: initialSession.nextCursor,
+        firstElapsedMs: initialSession.firstElapsedMs ?? 0,
+        loadingMore: false,
+        moreError: null,
+        restored: true,
+      };
+    }
+
+    return { status: "idle" };
+  });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(initialSession?.selectedIds ?? []),
+  );
+  const [websiteFilter, setWebsiteFilter] = useState<PresenceFilter>(
+    () => initialSession?.filters.website ?? DEFAULT_SEARCH_FILTERS.website,
+  );
+  const [phoneFilter, setPhoneFilter] = useState<PresenceFilter>(
+    () => initialSession?.filters.phone ?? DEFAULT_SEARCH_FILTERS.phone,
+  );
+  const [emailFilter, setEmailFilter] = useState<PresenceFilter>(
+    () => initialSession?.filters.email ?? DEFAULT_SEARCH_FILTERS.email,
+  );
   const [bulkPending, setBulkPending] = useState(false);
   const [bulkResult, setBulkResult] = useState<BulkSaveLeadsResult | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [restoreNotice, setRestoreNotice] = useState<string | null>(
+    initialSession && initialSession.results === null
+      ? "Your previous results were too large to keep for reload. The last search criteria are filled in, but the results were not restored."
+      : null,
+  );
   const moreInFlight = useRef(false);
   const bulkInFlight = useRef(false);
+  const searchInFlight = useRef(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
-  const loading = state.status === "loading";
   const loadingMore = state.status === "success" && state.loadingMore;
+  const resultActionsDisabled = searching || bulkPending;
   const loadedResults = state.status === "success" ? state.results : [];
   const filters: ResultFilters = {
     website: websiteFilter,
@@ -107,6 +187,8 @@ export function BusinessSearch() {
   const filtersActive = hasActiveFilters(filters);
 
   const visibleResults = filterLoadedBusinesses(loadedResults, filters);
+  const showClearResults =
+    state.status === "success" || restoreNotice !== null;
 
   const allLoadedSelected =
     loadedResults.length > 0 &&
@@ -125,10 +207,37 @@ export function BusinessSearch() {
     }
   }, [someLoadedSelected, allLoadedSelected]);
 
+  useEffect(() => {
+    if (!hydrated || state.status !== "success") return;
+
+    const storage = getSessionStorage();
+    if (!storage) return;
+
+    writeSearchSession(storage, {
+      query: state.query,
+      results: state.results,
+      nextCursor: state.nextCursor,
+      firstElapsedMs: state.firstElapsedMs,
+      filters: {
+        website: websiteFilter,
+        phone: phoneFilter,
+        email: emailFilter,
+      },
+      selectedIds: [...selectedIds],
+    });
+  }, [
+    hydrated,
+    state,
+    websiteFilter,
+    phoneFilter,
+    emailFilter,
+    selectedIds,
+  ]);
+
   function clearFilters() {
-    setWebsiteFilter("all");
-    setPhoneFilter("all");
-    setEmailFilter("all");
+    setWebsiteFilter(DEFAULT_SEARCH_FILTERS.website);
+    setPhoneFilter(DEFAULT_SEARCH_FILTERS.phone);
+    setEmailFilter(DEFAULT_SEARCH_FILTERS.email);
   }
 
   function toggleSelection(sourceId: string) {
@@ -163,13 +272,10 @@ export function BusinessSearch() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (loadingMore || bulkPending) return;
+    if (searchInFlight.current || loadingMore || bulkPending) return;
 
     if (niche.trim() === "" || location.trim() === "") {
-      setState({
-        status: "error",
-        message: "Enter both a niche and a location.",
-      });
+      setSearchError("Enter both a niche and a location.");
       return;
     }
 
@@ -178,7 +284,11 @@ export function BusinessSearch() {
       location: location.trim(),
     };
 
-    setState({ status: "loading" });
+    // Keep the previous successful results visible until this request succeeds.
+    searchInFlight.current = true;
+    setSearching(true);
+    setSearchError(null);
+    setRestoreNotice(null);
     const startedAt = performance.now();
 
     try {
@@ -199,19 +309,17 @@ export function BusinessSearch() {
           payload && "error" in payload
             ? payload.error.message
             : `The search failed (HTTP ${response.status}).`;
-        setState({ status: "error", message });
+        setSearchError(message);
         return;
       }
 
       if (!payload || !("results" in payload)) {
-        setState({
-          status: "error",
-          message: "The search returned an unexpected response.",
-        });
+        setSearchError("The search returned an unexpected response.");
         return;
       }
 
-      // A new result set invalidates selections from the previous search.
+      // Only a successful response replaces the previous result set. Selection
+      // and bulk feedback refer to the old rows, so they are reset together.
       setSelectedIds(new Set());
       setBulkResult(null);
       setState({
@@ -222,13 +330,31 @@ export function BusinessSearch() {
         firstElapsedMs: elapsedMs,
         loadingMore: false,
         moreError: null,
+        restored: false,
       });
     } catch {
-      setState({
-        status: "error",
-        message: "Could not reach the search service. Check your connection and try again.",
-      });
+      setSearchError(
+        "Could not reach the search service. Check your connection and try again.",
+      );
+    } finally {
+      searchInFlight.current = false;
+      setSearching(false);
     }
+  }
+
+  function handleClearResults() {
+    if (searching || loadingMore || bulkPending) return;
+
+    // Clearing temporary search state never touches saved leads or Supabase.
+    const storage = getSessionStorage();
+    if (storage) clearSearchSession(storage);
+
+    setState({ status: "idle" });
+    setSelectedIds(new Set());
+    setBulkResult(null);
+    setSearchError(null);
+    setRestoreNotice(null);
+    clearFilters();
   }
 
   async function handleLoadMore() {
@@ -236,6 +362,7 @@ export function BusinessSearch() {
       state.status !== "success" ||
       !state.nextCursor ||
       moreInFlight.current ||
+      searching ||
       bulkPending
     ) {
       return;
@@ -324,7 +451,7 @@ export function BusinessSearch() {
   }
 
   async function handleBulkSave() {
-    if (bulkInFlight.current || selectedIds.size === 0) return;
+    if (bulkInFlight.current || searching || selectedIds.size === 0) return;
 
     const selectedBusinesses = loadedResults.filter((business) =>
       selectedIds.has(business.sourceId),
@@ -354,6 +481,30 @@ export function BusinessSearch() {
       bulkInFlight.current = false;
       setBulkPending(false);
     }
+  }
+
+  if (!hydrated) {
+    return (
+      <div className="flex flex-col gap-4" aria-busy="true">
+        <Card>
+          <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+            <div className="h-[62px] animate-pulse rounded-xl bg-field" />
+            <div className="h-[62px] animate-pulse rounded-xl bg-field" />
+            <div className="h-[38px] w-full animate-pulse rounded-xl bg-field md:w-[110px]" />
+          </div>
+        </Card>
+
+        <Card>
+          <div aria-live="polite">
+            <p className="text-[13px] font-medium">Restoring your last search…</p>
+            <p className="mt-1 text-[12px] text-muted">
+              Checking this tab for temporary results. No new Overture search is
+              started.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -398,37 +549,66 @@ export function BusinessSearch() {
 
             <button
               type="submit"
-              disabled={loading || loadingMore || bulkPending}
+              disabled={searching || loadingMore || bulkPending}
               className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-4 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] disabled:opacity-60"
             >
               <SearchIcon size={15} />
-              {loading ? "Searching…" : "Search"}
+              {searching ? "Searching…" : "Search"}
             </button>
           </div>
 
-          <p className="text-[11px] text-faint">
-            Use “City, Country”. Searches query the live Overture Maps dataset, so the
-            first request can take up to about a minute. Results load 50 at a time.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] text-faint">
+              Use “City, Country”. Searches query the live Overture Maps dataset, so the
+              first request can take up to about a minute. Results load 50 at a time.
+            </p>
+
+            {showClearResults ? (
+              <button
+                type="button"
+                onClick={handleClearResults}
+                disabled={searching || loadingMore || bulkPending}
+                className="h-[30px] rounded-lg border border-line px-3 text-[11px] font-medium text-muted transition-colors hover:bg-field hover:text-foreground disabled:opacity-60"
+              >
+                Clear results
+              </button>
+            ) : null}
+          </div>
         </form>
       </Card>
 
-      {state.status === "idle" ? (
+      {restoreNotice ? (
         <Card>
           <EmptyState
-            title="Search real businesses"
-            description="Enter a niche and a location to pull businesses from Overture Maps. Nothing is saved until you save a lead or add selected businesses to My Leads."
+            title="Previous search criteria restored"
+            description={restoreNotice}
           />
         </Card>
       ) : null}
 
-      {state.status === "loading" ? (
+      {searchError ? (
+        <Card>
+          <EmptyState
+            title={state.status === "success" ? "New search failed" : "Search failed"}
+            description={`${searchError}${
+              state.status === "success"
+                ? " The previous results are still shown below."
+                : ""
+            }`}
+          />
+        </Card>
+      ) : null}
+
+      {searching ? (
         <Card>
           <div aria-live="polite" className="flex flex-col gap-2">
             <p className="text-[13px] font-medium">Searching Overture Maps…</p>
             <p className="text-[12px] text-muted">
               DuckDB is reading the remote Parquet dataset. This can take up to a
               minute on the first request.
+              {state.status === "success"
+                ? " The previous results stay visible until this search succeeds."
+                : ""}
             </p>
             <div className="mt-2 space-y-2" aria-hidden="true">
               <div className="h-3 w-2/3 animate-pulse rounded bg-field" />
@@ -439,10 +619,30 @@ export function BusinessSearch() {
         </Card>
       ) : null}
 
-      {state.status === "error" ? (
+      {state.status === "idle" &&
+      !searching &&
+      !searchError &&
+      !restoreNotice ? (
         <Card>
-          <EmptyState title="Search failed" description={state.message} />
+          <EmptyState
+            title="Search real businesses"
+            description="Enter a niche and a location to pull businesses from Overture Maps. Nothing is saved until you save a lead or add selected businesses to My Leads."
+          />
         </Card>
+      ) : null}
+
+      {state.status === "success" && state.restored ? (
+        <div
+          aria-live="polite"
+          className="rounded-xl border border-line bg-field px-3 py-2 text-[12px] text-muted"
+        >
+          <span className="font-medium text-foreground">
+            Restored from this tab.
+          </span>{" "}
+          The saved search was not re-run, so existing rows were not fetched again.
+          Filters, loaded pages, and valid selections were restored; any additional
+          pages load live.
+        </div>
       ) : null}
 
       {state.status === "success" && state.results.length === 0 ? (
@@ -513,7 +713,7 @@ export function BusinessSearch() {
                 type="checkbox"
                 checked={allLoadedSelected}
                 onChange={handleSelectAll}
-                disabled={bulkPending}
+                disabled={resultActionsDisabled}
                 className="h-4 w-4 accent-[#6d3ff0]"
               />
               Select all loaded ({loadedResults.length})
@@ -530,7 +730,7 @@ export function BusinessSearch() {
               <button
                 type="button"
                 onClick={handleBulkSave}
-                disabled={bulkPending || selectedIds.size === 0}
+                disabled={resultActionsDisabled || selectedIds.size === 0}
                 className="flex h-[32px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-3 text-[12px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] disabled:opacity-60"
               >
                 <BookmarkIcon size={14} />
@@ -541,7 +741,7 @@ export function BusinessSearch() {
                 <button
                   type="button"
                   onClick={clearSelection}
-                  disabled={bulkPending}
+                  disabled={resultActionsDisabled}
                   className="h-[32px] rounded-xl border border-line px-3 text-[12px] font-medium text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-60"
                 >
                   Clear selection
@@ -607,7 +807,7 @@ export function BusinessSearch() {
                       type="checkbox"
                       checked={selectedIds.has(business.sourceId)}
                       onChange={() => toggleSelection(business.sourceId)}
-                      disabled={bulkPending}
+                      disabled={resultActionsDisabled}
                       aria-label={`Select ${business.name}`}
                       className="mt-0.5 h-4 w-4 shrink-0 accent-[#6d3ff0]"
                     />
@@ -684,7 +884,7 @@ export function BusinessSearch() {
                 <button
                   type="button"
                   onClick={handleLoadMore}
-                  disabled={state.loadingMore || bulkPending}
+                  disabled={state.loadingMore || resultActionsDisabled}
                   className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-line bg-field px-4 text-[13px] font-medium text-foreground hover:border-[#6d3ff0] disabled:opacity-60"
                 >
                   {state.loadingMore ? "Loading more…" : "Load more"}

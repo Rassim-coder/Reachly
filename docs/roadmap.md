@@ -80,14 +80,16 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Implement safe business persistence.
-- [ ] Save a business as a lead.
-- [ ] Prevent duplicate leads.
-- [ ] Display persisted leads in My Leads.
-- [ ] Implement lead detail and edit operations.
-- [ ] Implement status changes.
-- [ ] Add notes and activity history.
-- [ ] Implement authorized deletion if required.
+- [x] Implement safe business persistence.
+- [x] Save a business as a lead.
+- [x] Prevent duplicate leads.
+- [x] Display persisted leads in My Leads.
+- [x] Implement the lead detail drawer.
+- [x] Implement status changes.
+- [x] Add notes and activity history.
+- [x] Add page-scoped row selection and bulk status/follow-up updates.
+- [x] Add confirmed, owner-scoped bulk lead deletion.
+- [ ] Implement editing saved business/contact fields.
 
 Acceptance criteria:
 
@@ -95,17 +97,20 @@ Acceptance criteria:
 - The same business cannot be duplicated for the same user.
 - Lead operations enforce ownership.
 - Notes and status changes are associated with the correct lead.
+- Bulk actions affect only selected, visible, owned leads.
+- Bulk deletion removes leads and dependent history without deleting shared
+  business records.
 
 ## Phase 5 — Follow-ups
 
 Tasks:
 
-- [ ] Finalize the follow-up data model.
-- [ ] Schedule and reschedule follow-ups.
-- [ ] Link follow-ups to leads.
-- [ ] Complete follow-ups.
+- [ ] Finalize whether one pending date per lead is sufficient.
+- [x] Schedule and reschedule follow-ups.
+- [x] Link follow-ups to leads.
+- [x] Complete follow-ups.
 - [ ] Derive navigation badge counts from real data.
-- [ ] Display Overdue, Today, and This week groups.
+- [ ] Display a dedicated Overdue, Today, and This week queue.
 
 Acceptance criteria:
 

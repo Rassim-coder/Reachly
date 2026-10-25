@@ -43,7 +43,7 @@ Implementation status (verified):
 - Pinned Overture release: `2026-10-21.0`, using `taxonomy.primary`. The previously planned `2026-08-19.0` is no longer published and the September 2026 schema removed `categories`; no runtime fallback exists, and a schema check fails loudly on mismatch.
 - `duckdb-async` is loaded at runtime with `createRequire` and listed in `serverExternalPackages`, because Turbopack cannot trace the native `duckdb` package.
 - One in-memory DuckDB database is shared per process, each search gets its own connection, and searches are serialized. A 120-second application timeout does not guarantee hosting-platform support.
-- Result limit is 50 (`nextCursor` is always `null`; pagination is not implemented).
+- Result limit is 50 per request. Keyset pagination uses the opaque `nextCursor` returned by each response.
 
 Search should run server-side. The implementation must be tested against the selected hosting runtime; only a local Node process has been verified.
 
@@ -78,31 +78,60 @@ Responsibilities:
 5. DuckDB queries the selected Overture release.
 6. Results are normalized into the application's business type.
 7. The endpoint returns a limited result set.
-8. The dashboard displays the results.
-9. The user may choose to save a business as a lead.
+8. The dashboard displays the results and keeps a versioned, size-bounded snapshot
+   of the last successful search in `sessionStorage`.
+9. Reloading the tab restores the criteria, loaded results, next cursor, filters,
+   and validated selections without re-running Overture. Restored results are
+   labelled and expire after 24 hours.
+10. A new search keeps the previous results visible until the new request
+    succeeds. A failed request does not replace them.
+11. "Clear results" removes only the temporary browser snapshot; it never
+    deletes saved leads or changes Supabase records.
+12. The user may choose to save a business as a lead.
 
-Search results should not automatically be inserted into Supabase.
+Search results should not automatically be inserted into Supabase. The temporary
+search snapshot is not a database cache and is not written to `businesses` or
+`leads`.
 
 ## 5. Save Lead Flow
 
 1. The authenticated user selects Save lead.
 2. The server verifies authentication and validates the submitted business identifier and data.
-3. The server resolves the source business record according to the approved schema.
-4. The server creates or retrieves the business record using a privileged
-   service-role client (`lib/supabase/admin.ts`), because the `businesses` table
-   has no client write policies.
-5. The server creates the user's lead without creating a duplicate.
-6. The server records the initial activity if required by the approved workflow.
-7. The UI updates only after the operation succeeds or returns an accurate result.
+3. The server validates the submitted business payload again and derives ownership
+   from the authenticated session (`auth.uid()` in the database function).
+4. The server calls `public.save_businesses_as_leads` with the authenticated
+   Supabase client. The function is proposed in
+   `docs/sql/save_lead_function.sql` and must be applied manually in the
+   Supabase SQL Editor; it is not part of the active migration history.
+5. The function inserts a shared business only if its `(source, source_id)` does
+   not exist. It never updates an existing shared business record, then creates
+   the user's lead using the existing `unique (user_id, business_id)` rule.
+6. The function returns counts for added, existing, and failed items. The UI
+   updates only after the operation succeeds or returns an accurate result.
 
-The business upsert, lead creation, and initial activity should be handled transactionally where practical. If multiple writes are used, failure and retry behavior must be explicitly addressed.
+The RPC is a hardened `SECURITY DEFINER` function with an empty fixed
+`search_path`, fully qualified object names, and execution granted only to
+`authenticated`. It replaces the previous service-role write path for saving.
+It does not prove that a new business payload originated from Overture; that
+trust limitation remains documented in `docs/database.md`.
 
 ## 6. Lead Management Flow
 
 - My Leads queries the authenticated user's leads.
+- Filtered and paginated list reads go through read-only Server Actions; the list
+  does not navigate away for search, filter, sort, or page changes.
+- The detail drawer reads one owned lead plus its 50 most recent activity rows.
 - Lead changes are validated on the server.
 - Notes and activities are associated with the correct lead and user.
-- Follow-ups are stored as real dates and linked to leads.
+- Follow-ups use the existing single `next_follow_up_date` date per lead; there is
+  no separate follow-up table or parallel task system.
+- Row selection is keyed by stable lead ids and scoped to the visible page.
+  Select-all never expands to every matching lead across pagination. Filtering,
+  sorting, or paging prunes selected ids that are no longer visible.
+- Bulk status and follow-up actions skip unchanged rows, use one batched activity
+  insert, and report partial failures without claiming unchanged rows succeeded.
+- Bulk delete removes only the caller's leads. Existing `lead_activities` and
+  `list_leads` foreign keys cascade; shared `businesses` records are retained.
 - Overview and analytics use persisted data rather than hard-coded values.
 
 ## 7. Proposed Code Organization
