@@ -170,17 +170,33 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof OvertureSearchError && error.kind === "city_not_found") {
-      return errorResponse("NOT_FOUND", error.message, 404);
+      return errorResponse(
+        "NOT_FOUND",
+        "We couldn't find a matching city. Check the city and country, then try again.",
+        404,
+      );
     }
 
     if (error instanceof OvertureSearchError && error.kind === "timeout") {
-      return errorResponse("SEARCH_FAILED", error.message, 504);
+      console.error("POST /api/businesses/search: Overture request timed out", error);
+      return errorResponse(
+        "SEARCH_FAILED",
+        cursorValue
+          ? "Loading more businesses took longer than expected. Your current results are unchanged—please try again shortly."
+          : "This search is taking longer than expected. Please try again shortly or use a more specific niche and location.",
+        504,
+      );
     }
 
-    // Release/schema mismatches and DuckDB failures are reported truthfully.
-    const message =
-      error instanceof Error ? error.message : "The business search failed.";
-
-    return errorResponse("SEARCH_FAILED", message, 500);
+    // Keep low-level DuckDB/S3 details in server logs only. They can include
+    // bucket paths and internal source diagnostics that aren't useful to users.
+    console.error("POST /api/businesses/search: remote search failed", error);
+    return errorResponse(
+      "SEARCH_FAILED",
+      cursorValue
+        ? "More businesses couldn't be loaded right now. Your current results are unchanged—please try again shortly."
+        : "Business search is temporarily unavailable. Please try again shortly.",
+      500,
+    );
   }
 }

@@ -43,6 +43,7 @@ DuckDB, network access, a browser, or environment variables.
 | File | Behavior covered |
 |---|---|
 | `tests/unit/result-filters.test.ts` | Website/phone/email presence filters, AND combinations, empty results, whitespace/null handling, active-filter detection, no mutation of loaded rows |
+| `tests/unit/search-errors.test.ts` | User-safe initial/Load more errors, validation and stale-cursor messaging, network failures, and suppression of raw provider diagnostics |
 | `tests/unit/search-session.test.ts` | Search snapshot round-trip for criteria/results/filters/pagination, stale selected-ID pruning, malformed/expired cache rejection, criteria-only size fallback, quota failure behavior, empty-result restoration, and clearing only the temporary search key |
 | `tests/unit/cursor.test.ts` | Cursor round-trip, URL-safe encoding, release/version rejection, malformed payloads, bbox shape and ranges, category and keyset-ID validation, size limit, strict output shape |
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |

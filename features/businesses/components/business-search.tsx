@@ -24,6 +24,10 @@ import type {
 } from "@/types/api";
 
 import {
+  getSearchFailureMessage,
+  getSearchNetworkFailureMessage,
+} from "../search-errors";
+import {
   DEFAULT_SEARCH_FILTERS,
   clearSearchSession,
   readSearchSession,
@@ -305,16 +309,17 @@ export function BusinessSearch() {
         | null;
 
       if (!response.ok) {
-        const message =
-          payload && "error" in payload
-            ? payload.error.message
-            : `The search failed (HTTP ${response.status}).`;
-        setSearchError(message);
+        const apiError = payload && "error" in payload ? payload : null;
+        setSearchError(
+          getSearchFailureMessage(apiError, "initial", response.status),
+        );
         return;
       }
 
       if (!payload || !("results" in payload)) {
-        setSearchError("The search returned an unexpected response.");
+        setSearchError(
+          "We couldn't display search results. Please try the search again.",
+        );
         return;
       }
 
@@ -333,9 +338,7 @@ export function BusinessSearch() {
         restored: false,
       });
     } catch {
-      setSearchError(
-        "Could not reach the search service. Check your connection and try again.",
-      );
+      setSearchError(getSearchNetworkFailureMessage("initial"));
     } finally {
       searchInFlight.current = false;
       setSearching(false);
@@ -385,10 +388,12 @@ export function BusinessSearch() {
         | null;
 
       if (!response.ok) {
-        const message =
-          payload && "error" in payload
-            ? payload.error.message
-            : `Could not load more results (HTTP ${response.status}).`;
+        const apiError = payload && "error" in payload ? payload : null;
+        const message = getSearchFailureMessage(
+          apiError,
+          "load_more",
+          response.status,
+        );
         setState((previous) =>
           previous.status === "success"
             ? { ...previous, loadingMore: false, moreError: message }
@@ -403,7 +408,8 @@ export function BusinessSearch() {
             ? {
                 ...previous,
                 loadingMore: false,
-                moreError: "The search returned an unexpected response.",
+                moreError:
+                  "More businesses couldn't be displayed. Your current results are unchanged—try Load more again shortly.",
               }
             : previous,
         );
@@ -440,8 +446,7 @@ export function BusinessSearch() {
           ? {
               ...previous,
               loadingMore: false,
-              moreError:
-                "Could not load more results. Check your connection and try again.",
+              moreError: getSearchNetworkFailureMessage("load_more"),
             }
           : previous,
       );
@@ -887,11 +892,17 @@ export function BusinessSearch() {
                   disabled={state.loadingMore || resultActionsDisabled}
                   className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-line bg-field px-4 text-[13px] font-medium text-foreground hover:border-[#6d3ff0] disabled:opacity-60"
                 >
-                  {state.loadingMore ? "Loading more…" : "Load more"}
+                  {state.loadingMore
+                    ? "Loading more…"
+                    : state.moreError
+                      ? "Retry load more"
+                      : "Load more"}
                 </button>
                 <p className="text-[11px] text-faint">
                   {state.loadingMore
                     ? "Querying the next batch from Overture Maps…"
+                    : state.moreError
+                      ? "Your current results are safe. You can retry this batch."
                     : "More results are available."}
                 </p>
               </>
