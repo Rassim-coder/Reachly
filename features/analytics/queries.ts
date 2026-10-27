@@ -6,7 +6,6 @@ import {
   buildLeadsOverTime,
   buildOutreachActivity,
   getAnalyticsRange,
-  getLastCompleteWeeks,
   type AnalyticsActivityEvent,
   type AnalyticsLeadRow,
   type AnalyticsRange,
@@ -70,15 +69,6 @@ export async function getAnalyticsDashboardData(
   }
 
   const range = getAnalyticsRange(period);
-  const outreachRange = getLastCompleteWeeks(range.endDate);
-  const activityStart =
-    range.startDate < outreachRange.startDate
-      ? range.startDate
-      : outreachRange.startDate;
-  const activityEnd =
-    range.endExclusive > outreachRange.endExclusive
-      ? range.endExclusive
-      : outreachRange.endExclusive;
   const supabase = await createClient();
 
   const [currentResult, savedResult, activityResult] = await Promise.all([
@@ -120,8 +110,8 @@ export async function getAnalyticsDashboardData(
         .select("id, lead_id, kind, body, created_at")
         .eq("user_id", user.id)
         .in("kind", ["status_change", "follow_up_completed"])
-        .gte("created_at", `${activityStart}T00:00:00.000Z`)
-        .lt("created_at", `${activityEnd}T00:00:00.000Z`)
+        .gte("created_at", `${range.startDate}T00:00:00.000Z`)
+        .lt("created_at", `${range.endExclusive}T00:00:00.000Z`)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, to);
@@ -191,7 +181,7 @@ export async function getAnalyticsDashboardData(
           : null,
       outreachActivity: activityResult.error
         ? null
-        : buildOutreachActivity(activityRows, outreachRange),
+        : buildOutreachActivity(activityRows, range),
       outreachError: activityResult.error
         ? "Outreach activity could not be loaded. Please try again."
         : null,

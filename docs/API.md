@@ -190,6 +190,11 @@ completion analytics can undercount that failure.
 My Leads displays a separate Completed follow-up indicator from the latest
 follow-up activity when no date is pending. This is not a `lead_status` value.
 
+The dashboard bell derives one grouped notification from the authenticated user's
+leads with `next_follow_up_date =` the current UTC date. It does not create
+notification records; the count is refreshed after follow-up mutations and at
+the next UTC midnight.
+
 ## 6. Analytics
 
 The Analytics page fetches and aggregates authenticated, owner-scoped lead and
@@ -197,12 +202,16 @@ activity rows on the server. It returns only chart aggregates to Recharts client
 components.
 
 - Current KPIs and the status distribution describe all currently saved leads.
-- Leads Over Time supports the last 7, 30, or 90 UTC calendar days (30 by
-  default). Saved counts use `leads.created_at`; the contacted series counts
-  distinct leads per interval with a recorded transition to Contacted.
-- Outreach Activity counts recorded events (not unique leads) in the last 8
-  complete Monday-based UTC weeks: status changes to Contacted or Interested,
-  and `follow_up_completed` activities.
+- The global Analytics selector supports the last 7, 30, or 90 UTC calendar
+  days (30 by default) and drives both historical charts. Saved counts use
+  `leads.created_at`; contacted counts distinct leads per interval with a
+  recorded transition to Contacted.
+- Outreach Activity counts recorded events (not unique leads) within that same
+  selected range: daily buckets for 7/30 days and Monday-based weekly buckets
+  for 90 days. Events are status changes to Contacted or Interested and
+  `follow_up_completed` activities.
+- KPI cards, status distribution, and Leads by Niche remain lifetime/current-
+  state metrics and are not filtered by the selected period.
 - Leads by Niche counts current saved leads grouped by the single
   `businesses.category` value, including an explicit No category group.
 

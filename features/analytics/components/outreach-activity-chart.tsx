@@ -26,7 +26,7 @@ export function OutreachActivityChart({
   }
 
   if (data.every((point) => point.total === 0)) {
-    return <ChartMessage>No recorded outreach activity in the last 8 complete weeks.</ChartMessage>;
+    return <ChartMessage>No recorded outreach activity in this date range.</ChartMessage>;
   }
 
   const totals = new Map(data.map((point) => [point.label, point.total]));
@@ -38,10 +38,11 @@ export function OutreachActivityChart({
           <CartesianGrid stroke="#34394d" strokeDasharray="3 3" />
           <XAxis
             dataKey="label"
+            interval="preserveStartEnd"
+            minTickGap={14}
             tick={{ fill: "#9aa1b5", fontSize: 10 }}
             tickLine={false}
             axisLine={{ stroke: "#4a5062" }}
-            interval={0}
           />
           <YAxis
             allowDecimals={false}

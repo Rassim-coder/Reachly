@@ -68,12 +68,6 @@ export type OutreachActivityPoint = {
   total: number;
 };
 
-export type CompleteWeeksRange = {
-  startDate: string;
-  endExclusive: string;
-  weeks: Array<{ bucket: string; label: string }>;
-};
-
 export type CurrentAnalytics = {
   metrics: AnalyticsMetricSummary;
   statuses: StatusDistributionPoint[];
@@ -111,22 +105,6 @@ export function getAnalyticsRange(
     endDate,
     endExclusive: shiftDate(endDate, 1),
   };
-}
-
-export function getLastCompleteWeeks(
-  today: string,
-  count = 8,
-): CompleteWeeksRange {
-  const currentWeekStart = mondayOf(today);
-  const startDate = shiftDate(currentWeekStart, -(count * 7));
-  const weeks: CompleteWeeksRange["weeks"] = [];
-
-  for (let index = 0; index < count; index += 1) {
-    const bucket = shiftDate(startDate, index * 7);
-    weeks.push({ bucket, label: `Week of ${shortDate(bucket)}` });
-  }
-
-  return { startDate, endExclusive: currentWeekStart, weeks };
 }
 
 /** Current-state metrics and breakdowns across every lead owned by the user. */
@@ -231,15 +209,23 @@ export function buildLeadsOverTime(
   return [...points.values()];
 }
 
-/** Counts activity rows, not unique leads, across the last 8 complete UTC weeks. */
+/** Counts activity rows, not unique leads, within the selected date range. */
 export function buildOutreachActivity(
   events: readonly AnalyticsActivityEvent[],
-  range: CompleteWeeksRange,
+  range: AnalyticsRange,
 ): OutreachActivityPoint[] {
+  const weekly = range.period === 90;
   const points = new Map<string, OutreachActivityPoint>(
-    range.weeks.map(({ bucket, label }) => [
+    getRangeBuckets(range, weekly).map((bucket) => [
       bucket,
-      { bucket, label, contacted: 0, interested: 0, followUpsCompleted: 0, total: 0 },
+      {
+        bucket,
+        label: weekly ? weekLabel(bucket, range) : shortDate(bucket),
+        contacted: 0,
+        interested: 0,
+        followUpsCompleted: 0,
+        total: 0,
+      },
     ]),
   );
   const contactedBody = buildBulkStatusActivityBody("contacted");
@@ -247,9 +233,9 @@ export function buildOutreachActivity(
 
   for (const event of events) {
     const date = timestampDate(event.createdAt);
-    if (date < range.startDate || date >= range.endExclusive) continue;
+    if (!isInRange(date, range)) continue;
 
-    const point = points.get(mondayOf(date));
+    const point = points.get(weekly ? mondayOf(date) : date);
     if (!point) continue;
 
     if (event.kind === "follow_up_completed") {

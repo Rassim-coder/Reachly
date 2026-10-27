@@ -88,6 +88,12 @@ function revalidateSavedLeads(leadId?: string) {
   revalidatePath("/");
 }
 
+function revalidateFollowUpState(leadId?: string) {
+  revalidateSavedLeads(leadId);
+  // The global header reads today's due count from the dashboard layout.
+  revalidatePath("/(dashboard)", "layout");
+}
+
 type LeadSupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
@@ -434,7 +440,7 @@ export async function updateLeadFollowUp(
     activity.body,
   );
 
-  revalidateSavedLeads(leadId);
+  revalidateFollowUpState(leadId);
 
   return {
     ok: true,
@@ -515,7 +521,7 @@ export async function completeLeadFollowUp(
         "follow_up_completed",
         "Follow-up marked complete.",
       ),
-    revalidate: () => revalidateSavedLeads(leadId),
+    revalidate: () => revalidateFollowUpState(leadId),
   });
 }
 
@@ -606,7 +612,7 @@ export async function bulkUpdateLeadStatus(
   );
 
   if (updatedIds.length > 0) {
-    revalidateSavedLeads();
+    revalidateFollowUpState();
   }
 
   return summarizeBulkStatusChange({
@@ -708,7 +714,7 @@ export async function bulkUpdateLeadFollowUp(
   );
 
   if (updatedIds.length > 0) {
-    revalidateSavedLeads();
+    revalidateFollowUpState();
   }
 
   return summarizeBulkFollowUpChange({
@@ -784,7 +790,7 @@ export async function bulkDeleteLeads(
   const failedIds = idCheck.ids.filter((id) => !deletedSet.has(id));
 
   if (deletedIds.length > 0) {
-    revalidateSavedLeads();
+    revalidateFollowUpState();
   }
 
   return summarizeBulkDelete({

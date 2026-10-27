@@ -51,6 +51,7 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date and timestamp formatting, category/location formatting, follow-up states and completed-history indicator, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail, notes and activity mapping, lead id validation |
 | `tests/unit/follow-up-queue.test.ts` | Overdue/today/upcoming grouping, exclusion of unscheduled and invalid dates, stable date/name ordering, no duplicate section membership, input immutability, and UTC date-only boundaries |
 | `tests/unit/follow-up-completion.test.ts` | Completion ordering, revalidation, idempotent retries, stale/unauthorized result handling, clear failures, and activity-write warnings |
+| `tests/unit/follow-up-notifications.test.ts` | Zero, singular, and plural due-today notification messages |
 | `tests/unit/analytics.test.ts` | 7/30/90-day UTC ranges, complete-week boundaries, current metrics, status and niche grouping, daily/weekly saved/contacted aggregation, activity-event counts, empty intervals, and zero-lead percentages |
 | `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
 | `tests/unit/lead-bulk.test.ts` | Page-scoped select/deselect and indeterminate state, selection pruning, empty/invalid/oversized ids, status validation, changed/unchanged/missing-row planning, status and follow-up summaries, partial failures, batched activity payloads, delete confirmation copy, full/partial/failed deletion results |
@@ -134,16 +135,20 @@ These behaviors cannot be proven by the unit suite:
 - Another user cannot read or mutate a follow-up by id.
 - The drawer, inline controls, mobile wrapping, busy state, and error feedback
   require browser verification.
+- The dashboard bell uses the signed-in user's UTC due-today count and links to
+  Follow-ups; badge updates after mutations and the UTC date rollover require
+  authenticated browser verification.
 
 ### Analytics
 
-- The 7/30/90-day selector changes the server query range; 7/30 days aggregate
-  daily and 90 days aggregate into Monday-based UTC weeks with empty buckets.
+- The global 7/30/90-day selector changes both historical chart queries; 7/30
+  days aggregate daily and 90 days aggregate into Monday-based UTC weeks with
+  empty buckets.
 - Saved events use lead creation timestamps; contacted values use recorded
   status-change activity rows targeting Contacted, never current status as a
   historical substitute.
 - Outreach counts recorded Contacted/Interested status changes and completed
-  follow-up activities in the last 8 complete UTC weeks; event counts are not
+  follow-up activities in the selected date range; event counts are not
   unique-lead counts.
 - Current status/niche counts use each owned lead once; empty categories and
   zero-lead percentages render safely.

@@ -28,10 +28,6 @@ const PERIODS: AnalyticsPeriod[] = [7, 30, 90];
 export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   return (
     <DashboardPage>
-      <PageHeader
-        title="Analytics"
-        description="Historical activity and a current view of your lead pipeline."
-      />
       <Suspense fallback={<AnalyticsSkeleton />}>
         <AnalyticsContent searchParams={searchParams} />
       </Suspense>
@@ -53,9 +49,16 @@ async function AnalyticsContent({
 
   if (!result.ok) {
     return (
-      <Card>
-        <EmptyState title="Could not load analytics" description={result.message} />
-      </Card>
+      <>
+        <PageHeader
+          title="Analytics"
+          description="Historical charts use the selected range; summary cards show lifetime or current-state metrics."
+          action={<PeriodSelector selected={period} />}
+        />
+        <Card>
+          <EmptyState title="Could not load analytics" description={result.message} />
+        </Card>
+      </>
     );
   }
 
@@ -65,6 +68,11 @@ async function AnalyticsContent({
 
   return (
     <>
+      <PageHeader
+        title="Analytics"
+        description="Historical charts use the selected range; summary cards show lifetime or current-state metrics."
+        action={<PeriodSelector selected={period} />}
+      />
       <section
         aria-label="Current lead metrics"
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
@@ -96,7 +104,6 @@ async function AnalyticsContent({
           <CardHeader
             title="Leads Over Time"
             description={`Saved by creation date; contacted counts recorded transitions to Contacted (${range.startDate}–${range.endDate} UTC).`}
-            action={<PeriodSelector selected={period} />}
           />
           <LeadsOverTimeChart
             data={data.leadsOverTime}
@@ -121,7 +128,7 @@ async function AnalyticsContent({
         <Card>
           <CardHeader
             title="Outreach Activity"
-            description="Recorded status and follow-up events · last 8 complete UTC weeks · events, not unique leads."
+            description={`Recorded status and follow-up events · Last ${period} days · ${period === 90 ? "weekly" : "daily"} buckets · events, not unique leads.`}
           />
           <OutreachActivityChart
             data={data.outreachActivity}
@@ -146,7 +153,7 @@ async function AnalyticsContent({
 
 function PeriodSelector({ selected }: { selected: AnalyticsPeriod }) {
   return (
-    <nav aria-label="Leads over time date range" className="flex shrink-0 gap-1">
+    <nav aria-label="Analytics date range" className="flex shrink-0 flex-wrap gap-1">
       {PERIODS.map((period) => {
         const active = selected === period;
         return (
@@ -160,7 +167,7 @@ function PeriodSelector({ selected }: { selected: AnalyticsPeriod }) {
                 : "border-line text-muted hover:bg-field hover:text-foreground"
             }`}
           >
-            {period === 7 ? "7 days" : `${period} days`}
+            {`Last ${period} days`}
           </Link>
         );
       })}
@@ -178,7 +185,7 @@ function MetricCard({
   note: string;
 }) {
   return (
-    <Card>
+    <Card className="motion-safe:transition-[transform,box-shadow,border-color] motion-safe:duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-primary/40 motion-safe:hover:shadow-[0_6px_18px_rgba(0,0,0,.12)]">
       <p className="text-[12px] text-muted">{label}</p>
       <p className="mt-1 text-[24px] font-bold">{value ?? "—"}</p>
       <p className="mt-0.5 text-[11px] text-faint">{note}</p>
@@ -188,32 +195,48 @@ function MetricCard({
 
 function AnalyticsSkeleton() {
   return (
-    <div aria-busy="true" aria-live="polite" className="space-y-4">
+    <div aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading analytics…</span>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => (
-          <Card key={item}>
-            <div className="h-4 w-24 animate-pulse rounded bg-field" />
-            <div className="mt-2 h-7 w-14 animate-pulse rounded bg-field" />
-            <div className="mt-2 h-3 w-24 animate-pulse rounded bg-field" />
-          </Card>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
-        {[0, 1].map((item) => (
-          <Card key={item}>
-            <div className="mb-3 h-4 w-36 animate-pulse rounded bg-field" />
-            <div className="h-[280px] animate-pulse rounded-xl bg-field" />
-          </Card>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {[0, 1].map((item) => (
-          <Card key={item}>
-            <div className="mb-3 h-4 w-36 animate-pulse rounded bg-field" />
-            <div className="h-[280px] animate-pulse rounded-xl bg-field" />
-          </Card>
-        ))}
+      <PageHeader
+        title="Analytics"
+        description="Historical charts use the selected range; summary cards show lifetime or current-state metrics."
+        action={
+          <div aria-hidden="true" className="flex gap-1">
+            {PERIODS.map((period) => (
+              <span
+                key={period}
+                className="h-6 w-[74px] animate-pulse rounded-full border border-line bg-field"
+              />
+            ))}
+          </div>
+        }
+      />
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((item) => (
+            <Card key={item}>
+              <div className="h-4 w-24 animate-pulse rounded bg-field" />
+              <div className="mt-2 h-7 w-14 animate-pulse rounded bg-field" />
+              <div className="mt-2 h-3 w-24 animate-pulse rounded bg-field" />
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+          {[0, 1].map((item) => (
+            <Card key={item}>
+              <div className="mb-3 h-4 w-36 animate-pulse rounded bg-field" />
+              <div className="h-[280px] animate-pulse rounded-xl bg-field" />
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {[0, 1].map((item) => (
+            <Card key={item}>
+              <div className="mb-3 h-4 w-36 animate-pulse rounded bg-field" />
+              <div className="h-[280px] animate-pulse rounded-xl bg-field" />
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );

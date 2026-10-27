@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import {
   mapLeadRow,
+  todayDateString,
   type LeadListItem,
   type LeadListRow,
 } from "../leads/lead-list";
@@ -30,6 +31,26 @@ export type FollowUpQueueResult =
       notesWarning: string | null;
     }
   | { ok: false; message: string };
+
+/** Count only this authenticated user's follow-ups due on the current UTC day. */
+export async function getFollowUpsDueTodayCount(): Promise<number | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("next_follow_up_date", todayDateString());
+
+  if (error) {
+    console.error("getFollowUpsDueTodayCount: failed to read today's follow-ups", error);
+    return null;
+  }
+
+  return count ?? 0;
+}
 
 /**
  * Reads the signed-in user's scheduled follow-ups.

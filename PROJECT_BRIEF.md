@@ -203,8 +203,9 @@ The current navigation badge displays 8.
 
 **Implemented from real records**
 - Current-state cards for leads saved, currently marked contacted, currently interested, and follow-ups due.
-- Leads Over Time line chart with 7/30/90-day filters and daily or weekly buckets.
-- Outreach Activity stacked weekly bars, current status distribution donut, and top niches horizontal bars.
+- A page-level 7/30/90-day UTC range shared by the Leads Over Time and Outreach Activity charts; buckets are daily for 7/30 days and weekly for 90 days.
+- Outreach Activity stacked bars, current status distribution donut, and top niches horizontal bars.
+- KPI cards, status distribution, and niche breakdown remain all-time/current-state values, independent of the selected historical range.
 
 **Data limitations**
 - Contacted and interested activity uses timestamped `status_change` history. It represents leads marked with those statuses, not verified calls, emails, or message delivery; failed activity inserts can undercount.

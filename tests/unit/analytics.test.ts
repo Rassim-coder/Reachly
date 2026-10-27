@@ -7,7 +7,6 @@ import {
   buildLeadsOverTime,
   buildOutreachActivity,
   getAnalyticsRange,
-  getLastCompleteWeeks,
   parseAnalyticsPeriod,
   type AnalyticsActivityEvent,
   type AnalyticsLeadRow,
@@ -50,13 +49,19 @@ describe("analytics date ranges", () => {
     });
   });
 
-  test("returns exactly the last 8 complete Monday-based UTC weeks", () => {
-    const range = getLastCompleteWeeks("2026-10-27");
-    assert.equal(range.startDate, "2026-08-31");
-    assert.equal(range.endExclusive, "2026-10-26");
-    assert.equal(range.weeks.length, 8);
-    assert.equal(range.weeks[0]?.bucket, "2026-08-31");
-    assert.equal(range.weeks[7]?.bucket, "2026-10-19");
+  test("returns matching UTC bounds for 30 and 90 day selections", () => {
+    assert.deepEqual(getAnalyticsRange(30, new Date("2026-10-27T10:00:00.000Z")), {
+      period: 30,
+      startDate: "2026-09-28",
+      endDate: "2026-10-27",
+      endExclusive: "2026-10-28",
+    });
+    assert.deepEqual(getAnalyticsRange(90, new Date("2026-10-27T10:00:00.000Z")), {
+      period: 90,
+      startDate: "2026-07-30",
+      endDate: "2026-10-27",
+      endExclusive: "2026-10-28",
+    });
   });
 });
 
@@ -170,6 +175,26 @@ describe("Leads Over Time", () => {
     assert.equal(data[6]?.contacted, 0);
   });
 
+  test("aggregates the selected 30-day range daily and excludes boundary overflow", () => {
+    const range = getAnalyticsRange(30, new Date("2026-10-27T10:00:00.000Z"));
+    const data = buildLeadsOverTime(
+      [
+        { createdAt: "2026-09-27T23:59:59.999Z" },
+        { createdAt: "2026-09-28T00:00:00.000Z" },
+        { createdAt: "2026-10-27T23:59:59.999Z" },
+        { createdAt: "2026-10-28T00:00:00.000Z" },
+      ],
+      [],
+      range,
+    );
+
+    assert.equal(data.length, 30);
+    assert.equal(data[0]?.bucket, "2026-09-28");
+    assert.equal(data[0]?.saved, 1);
+    assert.equal(data.at(-1)?.bucket, "2026-10-27");
+    assert.equal(data.at(-1)?.saved, 1);
+  });
+
   test("aggregates 90 days into Monday-based weeks and fills zero intervals", () => {
     const range = getAnalyticsRange(90, new Date("2026-10-27T10:00:00.000Z"));
     const data = buildLeadsOverTime(
@@ -190,33 +215,60 @@ describe("Leads Over Time", () => {
 });
 
 describe("Outreach Activity", () => {
-  test("counts activity events per complete week, not unique leads", () => {
-    const range = getLastCompleteWeeks("2026-10-27");
+  test("uses daily buckets for 7 days, includes today, and counts events", () => {
+    const range = getAnalyticsRange(7, new Date("2026-10-27T10:00:00.000Z"));
     const events = [
-      activity("same", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-19T08:00:00.000Z"),
-      activity("same", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-19T09:00:00.000Z"),
-      activity("same", "status_change", buildBulkStatusActivityBody("interested"), "2026-10-20T09:00:00.000Z"),
-      activity("same", "follow_up_completed", "Follow-up marked complete.", "2026-10-25T23:59:59.000Z"),
-      activity("outside", "follow_up_completed", "Follow-up marked complete.", "2026-10-26T00:00:00.000Z"),
+      activity("same", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-27T08:00:00.000Z"),
+      activity("same", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-27T09:00:00.000Z"),
+      activity("same", "status_change", buildBulkStatusActivityBody("interested"), "2026-10-22T09:00:00.000Z"),
+      activity("same", "follow_up_completed", "Follow-up marked complete.", "2026-10-27T23:59:59.000Z"),
+      activity("outside", "follow_up_completed", "Follow-up marked complete.", "2026-10-28T00:00:00.000Z"),
+      activity("outside", "follow_up_completed", "Follow-up marked complete.", "2026-10-20T23:59:59.000Z"),
     ];
     const data = buildOutreachActivity(events, range);
-    const activeWeek = data.find((point) => point.bucket === "2026-10-19");
+    const activeDay = data.find((point) => point.bucket === "2026-10-27");
 
-    assert.equal(data.length, 8);
-    assert.deepEqual(activeWeek, {
-      bucket: "2026-10-19",
-      label: "Week of 19 Oct",
+    assert.equal(data.length, 7);
+    assert.deepEqual(activeDay, {
+      bucket: "2026-10-27",
+      label: "27 Oct",
       contacted: 2,
-      interested: 1,
+      interested: 0,
       followUpsCompleted: 1,
-      total: 4,
+      total: 3,
     });
-    assert.ok(data.filter((point) => point.bucket !== "2026-10-19").every((point) => point.total === 0));
+    assert.equal(data.find((point) => point.bucket === "2026-10-22")?.interested, 1);
+    assert.ok(data.filter((point) => point.bucket !== "2026-10-27" && point.bucket !== "2026-10-22").every((point) => point.total === 0));
   });
 
-  test("returns zero-valued weeks for an empty activity dataset", () => {
-    const data = buildOutreachActivity([], getLastCompleteWeeks("2026-10-27"));
-    assert.equal(data.length, 8);
-    assert.ok(data.every((point) => point.total === 0));
+  test("uses daily buckets for 30 days and weekly buckets for 90 days", () => {
+    const events = [
+      activity("lead", "follow_up_completed", "Done", "2026-09-28T09:00:00.000Z"),
+      activity("lead", "follow_up_completed", "Done", "2026-10-26T09:00:00.000Z"),
+    ];
+    const range30 = getAnalyticsRange(30, new Date("2026-10-27T10:00:00.000Z"));
+    const daily = buildOutreachActivity(events, range30);
+    assert.equal(daily.length, 30);
+    assert.equal(daily[0]?.bucket, "2026-09-28");
+    assert.equal(daily.at(-1)?.bucket, "2026-10-27");
+    assert.equal(daily[0]?.followUpsCompleted, 1);
+
+    const range90 = getAnalyticsRange(90, new Date("2026-10-27T10:00:00.000Z"));
+    const weekly = buildOutreachActivity(events, range90);
+    assert.equal(weekly[0]?.bucket, "2026-07-27");
+    assert.equal(weekly.at(-1)?.bucket, "2026-10-26");
+    assert.equal(weekly.at(-1)?.followUpsCompleted, 1);
+    assert.equal(weekly.length, 14);
+  });
+
+  test("fills empty intervals in every selected range", () => {
+    for (const period of [7, 30, 90] as const) {
+      const data = buildOutreachActivity(
+        [],
+        getAnalyticsRange(period, new Date("2026-10-27T10:00:00.000Z")),
+      );
+      assert.ok(data.length > 0);
+      assert.ok(data.every((point) => point.total === 0));
+    }
   });
 });
