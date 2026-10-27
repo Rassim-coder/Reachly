@@ -117,6 +117,11 @@ Constraints and indexes:
 ⚠ `next_follow_up_date` is a **`date`**, not a timestamp: follow-ups have a day
 but no time of day. The follow-up queue must not assume a time.
 
+There is no separate follow-up row or completion column. The current workflow
+marks the one pending follow-up complete by clearing `next_follow_up_date` and
+appending a `follow_up_completed` activity. A null date is the persisted
+outstanding-state signal; the activity is the completion history entry.
+
 **Open design decision:** follow-ups are a single pending date per lead. There is
 no `follow_ups` table, so a lead cannot hold multiple scheduled tasks — see
 `docs/API.md` §5. The current My Leads workflow uses this single-date model.
@@ -142,6 +147,15 @@ The table declares a **composite** foreign key
 separate keys listed in the hosted schema dump (`lead_id → leads(id)` and
 `user_id → leads(user_id)`) because `leads.user_id` is not unique on its own.
 The insert policy enforces the same rule a second time.
+
+`status_change` rows are written by the authenticated status actions with a body
+such as `Status changed to Contacted.`. Single-lead status updates now skip
+unchanged values; bulk updates already skipped them. These rows support
+historical counts of leads **marked** Contacted or Interested, but they do not
+verify delivery of an external call, email, or message. Activity inserts happen
+after the lead update and are best-effort, so failed history writes can make
+activity analytics undercount. No separate contact-event kind is present in the
+schema.
 
 ### 2.6 `lists` and `list_leads`
 
@@ -177,6 +191,11 @@ dashboard:
 
 The view includes `where user_id = auth.uid()`, and RLS on `leads` further
 restricts rows to those owned by the caller.
+
+The current application status actions do not write `last_contacted_at`, so
+`contacted_this_week` may reflect only legacy or externally populated values.
+Analytics uses timestamped `status_change` activity rows instead for historical
+“marked Contacted” reporting.
 
 ## 3. Triggers
 

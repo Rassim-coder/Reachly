@@ -9,10 +9,12 @@ import type { NormalizedBusiness } from "@/types/api";
 
 import { isLeadStatus } from "./lead-list";
 import { isValidLeadId } from "./lead-detail";
+import { runFollowUpCompletion } from "./follow-up-completion";
 import {
   buildBulkActivityRows,
   buildBulkFollowUpActivity,
   buildBulkStatusActivityBody,
+  classifyFollowUpCompletionMiss,
   bulkErrorResult,
   planBulkFollowUpChange,
   planBulkStatusChange,
@@ -82,7 +84,14 @@ function revalidateSavedLeads(leadId?: string) {
   revalidatePath("/my-leads");
   if (leadId) revalidatePath(`/my-leads/${leadId}`);
   revalidatePath("/follow-ups");
+  revalidatePath("/analytics");
   revalidatePath("/");
+}
+
+function revalidateFollowUpState(leadId?: string) {
+  revalidateSavedLeads(leadId);
+  // The global header reads today's due count from the dashboard layout.
+  revalidatePath("/(dashboard)", "layout");
 }
 
 type LeadSupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -280,6 +289,7 @@ export async function updateLeadStatus(
     .update({ status })
     .eq("id", leadId)
     .eq("user_id", user.id)
+    .neq("status", status)
     .select("id")
     .maybeSingle();
 
@@ -289,7 +299,24 @@ export async function updateLeadStatus(
   }
 
   if (!data) {
-    return { ok: false, message: "Lead not found." };
+    const { data: existingLead, error: lookupError } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("id", leadId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error("updateLeadStatus: failed to verify unchanged lead", lookupError);
+      return {
+        ok: false,
+        message: "Could not update this lead. Please try again.",
+      };
+    }
+
+    return existingLead
+      ? { ok: true, message: "Lead status is already up to date." }
+      : { ok: false, message: "Lead not found." };
   }
 
   const recorded = await recordLeadActivity(
@@ -413,7 +440,7 @@ export async function updateLeadFollowUp(
     activity.body,
   );
 
-  revalidateSavedLeads(leadId);
+  revalidateFollowUpState(leadId);
 
   return {
     ok: true,
@@ -427,6 +454,7 @@ export async function updateLeadFollowUp(
 /** Clears the pending date and records a completed follow-up in the history. */
 export async function completeLeadFollowUp(
   leadId: string,
+  expectedDate: string,
 ): Promise<LeadMutationResult> {
   const user = await getCurrentUser();
 
@@ -438,45 +466,63 @@ export async function completeLeadFollowUp(
     return { ok: false, message: "Lead not found." };
   }
 
+  const expected = validateLeadFollowUpDate(expectedDate);
+  if (!expected.ok) {
+    return { ok: false, message: "This follow-up has changed. Refresh and try again." };
+  }
+  if (expected.value === null) {
+    return { ok: false, message: "This follow-up has changed. Refresh and try again." };
+  }
+  const expectedDateValue = expected.value;
+
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("leads")
-    .update({ next_follow_up_date: null })
-    .eq("id", leadId)
-    .eq("user_id", user.id)
-    .not("next_follow_up_date", "is", null)
-    .select("id")
-    .maybeSingle();
+  return runFollowUpCompletion({
+    clear: async () => {
+      const { data, error } = await supabase
+        .from("leads")
+        .update({ next_follow_up_date: null })
+        .eq("id", leadId)
+        .eq("user_id", user.id)
+        .eq("next_follow_up_date", expectedDateValue)
+        .select("id")
+        .maybeSingle();
 
-  if (error) {
-    console.error("completeLeadFollowUp: update failed", error);
-    return {
-      ok: false,
-      message: "Could not complete this follow-up. Please try again.",
-    };
-  }
+      if (error) {
+        console.error("completeLeadFollowUp: update failed", error);
+        return "failed";
+      }
 
-  if (!data) {
-    return {
-      ok: false,
-      message: "This lead has no scheduled follow-up to complete.",
-    };
-  }
+      if (data) return "completed";
 
-  const recorded = await recordLeadActivity(
-    supabase,
-    user.id,
-    leadId,
-    "follow_up_completed",
-    "Follow-up marked complete.",
-  );
+      const { data: currentLead, error: readError } = await supabase
+        .from("leads")
+        .select("next_follow_up_date")
+        .eq("id", leadId)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-  revalidateSavedLeads(leadId);
+      if (readError) {
+        console.error("completeLeadFollowUp: failed to verify completion", readError);
+        return "failed";
+      }
+      if (!currentLead) return "not_found";
 
-  return {
-    ok: true,
-    message: withActivityWarning("Follow-up completed.", recorded),
-  };
+      const completionState = classifyFollowUpCompletionMiss(
+        currentLead.next_follow_up_date,
+        expectedDateValue,
+      );
+      return completionState === "still_scheduled" ? "failed" : completionState;
+    },
+    recordCompletion: () =>
+      recordLeadActivity(
+        supabase,
+        user.id,
+        leadId,
+        "follow_up_completed",
+        "Follow-up marked complete.",
+      ),
+    revalidate: () => revalidateFollowUpState(leadId),
+  });
 }
 
 /**
@@ -566,7 +612,7 @@ export async function bulkUpdateLeadStatus(
   );
 
   if (updatedIds.length > 0) {
-    revalidateSavedLeads();
+    revalidateFollowUpState();
   }
 
   return summarizeBulkStatusChange({
@@ -668,7 +714,7 @@ export async function bulkUpdateLeadFollowUp(
   );
 
   if (updatedIds.length > 0) {
-    revalidateSavedLeads();
+    revalidateFollowUpState();
   }
 
   return summarizeBulkFollowUpChange({
@@ -744,7 +790,7 @@ export async function bulkDeleteLeads(
   const failedIds = idCheck.ids.filter((id) => !deletedSet.has(id));
 
   if (deletedIds.length > 0) {
-    revalidateSavedLeads();
+    revalidateFollowUpState();
   }
 
   return summarizeBulkDelete({

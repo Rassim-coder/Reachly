@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { getFollowUpsDueTodayCount } from "@/features/follow-ups/queries";
 import { getCurrentUser } from "@/lib/auth/session";
 
 /**
@@ -33,6 +34,8 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const followUpsDueToday = await getFollowUpsDueTodayCount();
+
   const displayName =
     user.user_metadata.full_name?.trim() || user.email?.split("@")[0] || null;
 
@@ -41,7 +44,10 @@ export default async function DashboardLayout({
       <DashboardNav userName={displayName} onSignOutSlot={<SignOutButton />} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <DashboardHeader userName={displayName} />
+        <DashboardHeader
+          userName={displayName}
+          followUpsDueToday={followUpsDueToday}
+        />
 
         <main className="flex flex-1 flex-col">{children}</main>
       </div>

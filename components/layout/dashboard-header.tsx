@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   BellIcon,
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/icons";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { getFollowUpsDueTodayMessage } from "@/features/follow-ups/notifications";
 
 /**
  * Sticky dashboard header matching
@@ -39,12 +41,46 @@ function readInitialTheme(): "dark" | "light" {
 
 export function DashboardHeader({
   userName,
-  notificationCount = 0,
+  followUpsDueToday,
 }: {
   userName?: string;
-  notificationCount?: number;
+  followUpsDueToday: number | null;
 }) {
+  const router = useRouter();
   const [theme, setTheme] = useState<"dark" | "light">(readInitialTheme);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    function refreshAtNextUtcDay() {
+      const now = new Date();
+      const nextUtcMidnight = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1,
+      );
+
+      timer = setTimeout(() => {
+        router.refresh();
+        refreshAtNextUtcDay();
+      }, Math.max(1000, nextUtcMidnight - now.getTime() + 50));
+    }
+
+    refreshAtNextUtcDay();
+    return () => clearTimeout(timer);
+  }, [router]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setNotificationsOpen(false);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [notificationsOpen]);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -92,19 +128,62 @@ export function DashboardHeader({
         <PaletteIcon size={16} />
       </button>
 
-      <button
-        type="button"
-        aria-label="Notifications"
-        className="relative grid size-[30px] place-items-center rounded-full text-muted hover:bg-field"
-      >
-        <BellIcon size={16} />
-        {notificationCount > 0 ? (
-          <span
-            aria-hidden="true"
-            className="absolute top-[5px] right-[6px] size-1.5 rounded-full bg-red-500"
-          />
+      <div className="relative">
+        <button
+          type="button"
+          aria-label={
+            followUpsDueToday === null
+              ? "Notifications"
+              : `Notifications, ${followUpsDueToday} follow-ups due today`
+          }
+          aria-expanded={notificationsOpen}
+          aria-controls="dashboard-notifications"
+          onClick={() => setNotificationsOpen((open) => !open)}
+          className="relative grid size-[30px] place-items-center rounded-full text-muted hover:bg-field"
+        >
+          <BellIcon size={16} />
+          {followUpsDueToday !== null && followUpsDueToday > 0 ? (
+            <span
+              aria-hidden="true"
+              className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white"
+            >
+              {followUpsDueToday > 99 ? "99+" : followUpsDueToday}
+            </span>
+          ) : null}
+        </button>
+
+        {notificationsOpen ? (
+          <section
+            id="dashboard-notifications"
+            aria-label="Notifications"
+            className="absolute top-full right-0 z-50 mt-2 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-3 shadow-card"
+          >
+            <h2 className="text-[12px] font-semibold">Notifications</h2>
+            {followUpsDueToday === null ? (
+              <p role="status" className="mt-2 text-[12px] text-muted">
+                Today&apos;s follow-ups could not be loaded. Please try again later.
+              </p>
+            ) : followUpsDueToday === 0 ? (
+              <p role="status" className="mt-2 text-[12px] text-muted">
+                {getFollowUpsDueTodayMessage(0)}
+              </p>
+            ) : (
+              <Link
+                href="/follow-ups"
+                onClick={() => setNotificationsOpen(false)}
+                className="mt-2 block rounded-lg p-2 text-[12px] text-foreground transition-colors hover:bg-field"
+              >
+                <span className="block">
+                  {getFollowUpsDueTodayMessage(followUpsDueToday)}
+                </span>
+                <span className="mt-1 block text-[11px] text-primary">
+                  View Follow-ups →
+                </span>
+              </Link>
+            )}
+          </section>
         ) : null}
-      </button>
+      </div>
 
       <span
         aria-hidden="true"
