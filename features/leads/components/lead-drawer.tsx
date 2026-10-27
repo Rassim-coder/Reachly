@@ -490,7 +490,10 @@ function LeadDrawerPanel({
                   >
                     Next follow-up
                   </h3>
-                  <FollowUpLabel date={detail.nextFollowUpDate} />
+                  <FollowUpLabel
+                    date={detail.nextFollowUpDate}
+                    completedAt={detail.followUpCompletedAt}
+                  />
                 </div>
 
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">

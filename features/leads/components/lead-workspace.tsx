@@ -344,6 +344,15 @@ export function LeadWorkspace({ initial }: { initial: MyLeadsSuccess }) {
         </div>
       ) : null}
 
+      {result.followUpHistoryWarning ? (
+        <div
+          role="status"
+          className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-300"
+        >
+          {result.followUpHistoryWarning}
+        </div>
+      ) : null}
+
       {bulkFeedback ? (
         <div
           role={bulkFeedback.tone === "error" ? "alert" : "status"}

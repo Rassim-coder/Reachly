@@ -186,6 +186,9 @@ history is written after the date mutation; if that insert fails, completion
 remains persisted and the user receives a history warning, so historical
 completion analytics can undercount that failure.
 
+My Leads displays a separate Completed follow-up indicator from the latest
+follow-up activity when no date is pending. This is not a `lead_status` value.
+
 ## 6. Analytics
 
 The Analytics page fetches and aggregates authenticated, owner-scoped lead and

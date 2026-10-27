@@ -44,7 +44,48 @@ export type LeadListItem = {
   status: LeadStatus;
   lastContactedAt: string | null;
   nextFollowUpDate: string | null;
+  /** Latest completed follow-up timestamp when there is no pending date. */
+  followUpCompletedAt?: string | null;
 };
+
+export type LeadFollowUpHistoryRow = {
+  id: string;
+  lead_id: string;
+  kind: Extract<
+    Database["public"]["Enums"]["activity_kind"],
+    "follow_up_scheduled" | "follow_up_cleared" | "follow_up_completed"
+  >;
+  created_at: string;
+};
+
+/** Enriches one lead page with the latest follow-up history event per lead. */
+export function withFollowUpCompletionState(
+  leads: readonly LeadListItem[],
+  activities: readonly LeadFollowUpHistoryRow[],
+): LeadListItem[] {
+  const latestByLeadId = new Map<string, LeadFollowUpHistoryRow>();
+  const sortedActivities = [...activities].sort(
+    (a, b) =>
+      b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+  );
+
+  for (const activity of sortedActivities) {
+    if (!latestByLeadId.has(activity.lead_id)) {
+      latestByLeadId.set(activity.lead_id, activity);
+    }
+  }
+
+  return leads.map((lead) => {
+    const latest = latestByLeadId.get(lead.id);
+    return {
+      ...lead,
+      followUpCompletedAt:
+        lead.nextFollowUpDate === null && latest?.kind === "follow_up_completed"
+          ? latest.created_at
+          : null,
+    };
+  });
+}
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   new: "New",

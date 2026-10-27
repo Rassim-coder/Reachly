@@ -23,6 +23,8 @@ import {
   leadStatusLabel,
   mapLeadRow,
   todayDateString,
+  withFollowUpCompletionState,
+  type LeadFollowUpHistoryRow,
   type LeadListRow,
   type LeadListRowBusiness,
   type LeadStatus,
@@ -235,6 +237,58 @@ describe("lead row mapping", () => {
   });
 });
 
+describe("My Leads follow-up completion display state", () => {
+  test("labels the latest completed follow-up but not a later cleared or scheduled one", () => {
+    const completedLead = mapLeadRow(
+      row({ next_follow_up_date: null }),
+    );
+    const scheduledLead = mapLeadRow(
+      row({ next_follow_up_date: "2026-11-02" }),
+    );
+    assert.ok(completedLead);
+    assert.ok(scheduledLead);
+
+    const history: LeadFollowUpHistoryRow[] = [
+      {
+        id: "c1",
+        lead_id: completedLead.id,
+        kind: "follow_up_completed",
+        created_at: "2026-10-27T10:00:00.000Z",
+      },
+      {
+        id: "c2",
+        lead_id: completedLead.id,
+        kind: "follow_up_scheduled",
+        created_at: "2026-10-26T10:00:00.000Z",
+      },
+      {
+        id: "s1",
+        lead_id: scheduledLead.id,
+        kind: "follow_up_completed",
+        created_at: "2026-10-25T10:00:00.000Z",
+      },
+    ];
+    const enriched = withFollowUpCompletionState(
+      [completedLead, scheduledLead],
+      history,
+    );
+
+    assert.equal(enriched[0]?.followUpCompletedAt, "2026-10-27T10:00:00.000Z");
+    assert.equal(enriched[1]?.followUpCompletedAt, null);
+
+    const laterClear = withFollowUpCompletionState([completedLead], [
+      ...history,
+      {
+        id: "c3",
+        lead_id: completedLead.id,
+        kind: "follow_up_cleared",
+        created_at: "2026-10-28T10:00:00.000Z",
+      },
+    ]);
+    assert.equal(laterClear[0]?.followUpCompletedAt, null);
+  });
+});
+
 describe("lead detail mapping", () => {
   const detailRow: LeadDetailRow = {
     id: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
@@ -271,6 +325,7 @@ describe("lead detail mapping", () => {
       status: "contacted",
       lastContactedAt: "2026-10-24T15:00:00.000Z",
       nextFollowUpDate: "2026-10-30",
+      followUpCompletedAt: null,
       notes: [
         {
           id: "b1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
@@ -303,6 +358,7 @@ describe("lead detail mapping", () => {
     );
 
     assert.equal(mapped?.nextFollowUpDate, null);
+    assert.equal(mapped?.followUpCompletedAt, "2026-10-27T09:00:00.000Z");
     assert.equal(mapped?.status, "contacted");
     assert.equal(mapped?.activities[0]?.kind, "follow_up_completed");
   });

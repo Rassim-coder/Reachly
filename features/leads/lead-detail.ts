@@ -130,6 +130,7 @@ export function mapLeadActivityItem(
 export function mapLeadDetailRow(
   row: LeadDetailRow,
   activities: LeadActivityRow[],
+  latestFollowUpActivity?: LeadActivityRow | null,
 ): LeadDetail | null {
   const business = Array.isArray(row.businesses)
     ? (row.businesses[0] ?? null)
@@ -149,6 +150,19 @@ export function mapLeadDetailRow(
       body: activity.body,
       createdAt: activity.createdAt,
     }));
+  const latestFollowUp =
+    latestFollowUpActivity === undefined
+      ? mappedActivities
+          .filter(
+            (activity) =>
+              activity.kind === "follow_up_scheduled" ||
+              activity.kind === "follow_up_cleared" ||
+              activity.kind === "follow_up_completed",
+          )
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+      : latestFollowUpActivity === null
+        ? null
+        : mapLeadActivityItem(latestFollowUpActivity);
 
   return {
     id: row.id,
@@ -165,6 +179,11 @@ export function mapLeadDetailRow(
     status: row.status,
     lastContactedAt: row.last_contacted_at,
     nextFollowUpDate: row.next_follow_up_date,
+    followUpCompletedAt:
+      row.next_follow_up_date === null &&
+      latestFollowUp?.kind === "follow_up_completed"
+        ? latestFollowUp.createdAt
+        : null,
     notes,
     activities: mappedActivities,
   };
