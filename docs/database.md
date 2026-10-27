@@ -179,8 +179,7 @@ schema.
 
 ### 2.8 `lead_stats` view
 
-A regular view over `leads` that returns per-user overview metrics used by the
-dashboard:
+A regular view over `leads` that returns these legacy per-user metrics:
 
 | Column | Derived from |
 |---|---|
@@ -194,8 +193,10 @@ restricts rows to those owned by the caller.
 
 The current application status actions do not write `last_contacted_at`, so
 `contacted_this_week` may reflect only legacy or externally populated values.
-Analytics uses timestamped `status_change` activity rows instead for historical
-“marked Contacted” reporting.
+The current Overview and Analytics implementations therefore do not use this
+view for Contacted metrics; they use timestamped `status_change` activity rows
+for leads marked Contacted. Overview derives its other counts and breakdowns
+from the authenticated user's persisted lead rows.
 
 ## 3. Triggers
 

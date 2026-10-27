@@ -4,23 +4,23 @@ import {
   MessageCircleIcon,
   SendIcon,
 } from "@/components/ui/icons";
-import { getLeadStats } from "@/features/overview/queries";
+import type { OverviewMetricStats } from "@/features/overview/overview";
 
 type KpiDefinition = {
   label: string;
-  value: number;
+  value: number | null;
   icon: typeof BookmarkIcon;
   note: string;
 };
 
 function Kpi({ label, value, icon: Icon, note }: KpiDefinition) {
   return (
-    <div className="rounded-[14px] border border-white/20 bg-white/15 p-3.5 backdrop-blur-[8px]">
+    <div className="rounded-[14px] border border-white/20 bg-white/15 p-3.5 backdrop-blur-[8px] motion-safe:transition-[transform,box-shadow,border-color] motion-safe:duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-white/40 motion-safe:hover:shadow-[0_6px_18px_rgba(0,0,0,.14)]">
       <div className="flex items-center gap-1.5 text-[12px] opacity-80">
         <Icon size={14} />
         {label}
       </div>
-      <p className="my-1 text-[24px] font-bold">{value}</p>
+      <p className="my-1 text-[24px] font-bold">{value ?? "—"}</p>
       <p className="text-[11px] opacity-90">{note}</p>
     </div>
   );
@@ -55,28 +55,25 @@ export function KpiSkeletonGrid() {
 }
 
 /**
- * KPI row for the overview hero.
- *
- * Reading `lead_stats` needs the request (it is scoped to the signed-in user),
- * so this component is rendered behind `<Suspense>` in the page. Only the
- * numbers wait; the hero, greeting, and every card stay in the static shell.
+ * Presentational KPI row for the overview hero. Values are aggregated by the
+ * authenticated server-side overview query; unavailable metrics stay explicit.
  */
-export async function OverviewKpis() {
-  const stats = await getLeadStats();
-
+export function OverviewKpis({ stats }: { stats: OverviewMetricStats }) {
   const kpis: KpiDefinition[] = [
     { label: "Leads Saved", value: stats.savedLeads, icon: BookmarkIcon, note: "All time" },
     {
       label: "Contacted",
-      value: stats.contactedThisWeek,
+      value: stats.contactedLast7Days,
       icon: SendIcon,
-      note: "Last 7 days",
+      note: stats.contactedLast7Days === null
+        ? "Contact history unavailable"
+        : "Marked contacted · last 7 days",
     },
     {
-      label: "Interested",
-      value: stats.interested,
+      label: "Replies",
+      value: stats.replies,
       icon: MessageCircleIcon,
-      note: "Marked as interested",
+      note: "Reply tracking unavailable",
     },
     {
       label: "Follow-ups Due",

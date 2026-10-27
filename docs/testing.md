@@ -52,7 +52,8 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/follow-up-queue.test.ts` | Overdue/today/upcoming grouping, exclusion of unscheduled and invalid dates, stable date/name ordering, no duplicate section membership, input immutability, and UTC date-only boundaries |
 | `tests/unit/follow-up-completion.test.ts` | Completion ordering, revalidation, idempotent retries, stale/unauthorized result handling, clear failures, and activity-write warnings |
 | `tests/unit/follow-up-notifications.test.ts` | Zero, singular, and plural due-today notification messages |
-| `tests/unit/analytics.test.ts` | 7/30/90-day UTC ranges, complete-week boundaries, current metrics, status and niche grouping, daily/weekly saved/contacted aggregation, activity-event counts, empty intervals, and zero-lead percentages |
+| `tests/unit/overview.test.ts` | Six-month UTC buckets, lifetime/current metrics, recorded contacted events, due follow-ups, pipeline and niche counts, recent sorting, note selection, and empty data |
+| `tests/unit/analytics.test.ts` | Global 7/30/90-day UTC ranges, current metrics, status and niche grouping, daily/weekly saved/contacted/outreach aggregation, activity-event counts, empty intervals, and zero-lead percentages |
 | `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
 | `tests/unit/lead-bulk.test.ts` | Page-scoped select/deselect and indeterminate state, selection pruning, empty/invalid/oversized ids, status validation, changed/unchanged/missing-row planning, status and follow-up summaries, partial failures, batched activity payloads, delete confirmation copy, full/partial/failed deletion results |
 | `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
@@ -118,6 +119,19 @@ These behaviors cannot be proven by the unit suite:
 - A saved lead is visibly present after the save action.
 - Empty, query-failure, loading, and not-found states render without invented
   data.
+
+### Overview dashboard
+
+- The welcome KPIs, pipeline, niche breakdown, recent leads, and due follow-ups
+  read only the signed-in user's persisted records.
+- The monthly Saved/Contacted toggle uses `leads.created_at` and recorded
+  status-change activity timestamps; Replies stays unavailable until reply
+  activity is tracked.
+- The header due-today notification uses the UTC date, updates after follow-up
+  mutations, and refreshes at UTC midnight.
+- Authenticated data isolation, real event completeness, notification refresh,
+  chart interaction, responsive layout, and reduced-motion rendering require
+  browser/database verification.
 
 ### Dedicated Follow-ups queue
 

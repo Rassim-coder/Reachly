@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/unit/result-filters.test.ts tests/unit/search-errors.test.ts tests/unit/search-session.test.ts tests/unit/cursor.test.ts tests/unit/normalize.test.ts tests/unit/lead-validation.test.ts tests/unit/lead-list.test.ts tests/unit/follow-up-queue.test.ts tests/unit/follow-up-completion.test.ts tests/unit/follow-up-notifications.test.ts tests/unit/analytics.test.ts tests/unit/lead-filters.test.ts tests/unit/lead-bulk.test.ts tests/unit/lead-save-result.test.ts"
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/unit/result-filters.test.ts tests/unit/search-errors.test.ts tests/unit/search-session.test.ts tests/unit/cursor.test.ts tests/unit/normalize.test.ts tests/unit/lead-validation.test.ts tests/unit/lead-list.test.ts tests/unit/follow-up-queue.test.ts tests/unit/follow-up-completion.test.ts tests/unit/follow-up-notifications.test.ts tests/unit/overview.test.ts tests/unit/analytics.test.ts tests/unit/lead-filters.test.ts tests/unit/lead-bulk.test.ts tests/unit/lead-save-result.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

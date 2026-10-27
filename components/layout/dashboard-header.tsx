@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 
 import {
   BellIcon,
+  ChevronDownIcon,
   MoonIcon,
-  PaletteIcon,
   PlusIcon,
   SearchIcon,
+  SettingsIcon,
   SunIcon,
 } from "@/components/ui/icons";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
@@ -49,6 +50,7 @@ export function DashboardHeader({
   const router = useRouter();
   const [theme, setTheme] = useState<"dark" | "light">(readInitialTheme);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -72,15 +74,18 @@ export function DashboardHeader({
   }, [router]);
 
   useEffect(() => {
-    if (!notificationsOpen) return;
+    if (!notificationsOpen && !accountMenuOpen) return;
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setNotificationsOpen(false);
+      if (event.key === "Escape") {
+        setNotificationsOpen(false);
+        setAccountMenuOpen(false);
+      }
     }
 
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [notificationsOpen]);
+  }, [notificationsOpen, accountMenuOpen]);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -91,13 +96,14 @@ export function DashboardHeader({
 
   return (
     <header className="sticky top-0 z-10 flex h-[50px] items-center gap-2.5 border-b border-line bg-surface px-4 lg:px-[18px]">
-      <div className="hidden h-[30px] w-[230px] items-center gap-2 rounded-full border border-line bg-field px-3 text-faint md:flex">
+      <Link
+        href="/my-leads"
+        aria-label="Open the My Leads search"
+        className="hidden h-[30px] w-[230px] items-center gap-2 rounded-full border border-line bg-field px-3 text-faint hover:border-primary/40 hover:text-muted md:flex"
+      >
         <SearchIcon size={14} />
-        <span className="flex-1 truncate text-[13px]">Search leads and businesses…</span>
-        <kbd className="rounded-[5px] border border-line bg-surface px-[5px] font-sans text-[10px] font-medium">
-          ⌘K
-        </kbd>
-      </div>
+        <span className="flex-1 truncate text-[13px]">Search saved leads…</span>
+      </Link>
 
       <div className="flex-1" />
 
@@ -120,14 +126,6 @@ export function DashboardHeader({
         {theme === "dark" ? <MoonIcon size={16} /> : <SunIcon size={16} />}
       </button>
 
-      <button
-        type="button"
-        aria-label="Theme colors"
-        className="hidden size-[30px] place-items-center rounded-full text-muted hover:bg-field sm:grid"
-      >
-        <PaletteIcon size={16} />
-      </button>
-
       <div className="relative">
         <button
           type="button"
@@ -138,7 +136,10 @@ export function DashboardHeader({
           }
           aria-expanded={notificationsOpen}
           aria-controls="dashboard-notifications"
-          onClick={() => setNotificationsOpen((open) => !open)}
+          onClick={() => {
+            setAccountMenuOpen(false);
+            setNotificationsOpen((open) => !open);
+          }}
           className="relative grid size-[30px] place-items-center rounded-full text-muted hover:bg-field"
         >
           <BellIcon size={16} />
@@ -185,14 +186,49 @@ export function DashboardHeader({
         ) : null}
       </div>
 
-      <span
-        aria-hidden="true"
-        className={cn(
-          "grid size-[30px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#3b82f6,#6d3ff0)] text-[10px] font-semibold text-white",
-        )}
-      >
-        {userName ? userName.slice(0, 2).toUpperCase() : "R"}
-      </span>
+      <div className="relative">
+        <button
+          type="button"
+          aria-label="Open account menu"
+          aria-expanded={accountMenuOpen}
+          aria-controls="dashboard-account-menu"
+          onClick={() => {
+            setNotificationsOpen(false);
+            setAccountMenuOpen((open) => !open);
+          }}
+          className="flex h-[30px] items-center gap-1 rounded-full text-muted hover:bg-field"
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              "grid size-[30px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#3b82f6,#6d3ff0)] text-[10px] font-semibold text-white",
+            )}
+          >
+            {userName ? userName.slice(0, 2).toUpperCase() : "R"}
+          </span>
+          <ChevronDownIcon size={12} />
+        </button>
+
+        {accountMenuOpen ? (
+          <div
+            id="dashboard-account-menu"
+            aria-label="Account menu"
+            className="absolute top-full right-0 z-50 mt-2 w-56 rounded-xl border border-line bg-surface p-2 shadow-card"
+          >
+            <p className="truncate px-2 py-1 text-[11px] text-faint">
+              {userName ?? "Account"}
+            </p>
+            <Link
+              href="/settings"
+              onClick={() => setAccountMenuOpen(false)}
+              className="flex items-center gap-2 rounded-lg px-2 py-2 text-[12px] text-muted hover:bg-field hover:text-foreground"
+            >
+              <SettingsIcon size={14} />
+              Account settings
+            </Link>
+          </div>
+        ) : null}
+      </div>
     </header>
   );
 }

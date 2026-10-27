@@ -124,14 +124,12 @@ The following status reflects the supplied dashboard specification. It describes
 
 #### 6.1 Overview
 
-**Currently works in the UI**
-- Greeting banner.
-- Four stat cards: Leads Saved, Contacted, Replies, Follow-ups Due.
-- Leads Over Time chart with Saved/Contacted toggle and hover tooltips.
-- Display-only Recent Leads, Pipeline bar, Follow-ups Due list, and Leads by Niche.
+**Implemented from persisted, user-owned data**
+- Welcome banner and KPI cards for all-time Leads Saved, Contacted marked in the last 7 days, Replies (clearly unavailable because replies are not tracked), and current Follow-ups Due.
+- Monthly Leads Over Time chart with a working Saved/Contacted toggle. Contacted uses recorded status-change activities, not current status as historical data.
+- Recent Leads, Pipeline by the supported lead statuses, next outstanding Follow-ups, and Leads by Niche.
 
-**Missing**
-- Statistics are not calculated from real lead data.
+The Overview uses server-side authenticated queries and renders empty/error states without sample records. Contacted status-history writes are best-effort and may undercount; external outreach delivery and replies are not tracked by the current schema.
 
 #### 6.2 Find Businesses
 
