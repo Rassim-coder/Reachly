@@ -93,7 +93,7 @@ describe("Overview aggregation", () => {
     assert.deepEqual(data.stats, {
       savedLeads: 4,
       contactedLast7Days: 1,
-      replies: null,
+      interestedLeads: 1,
       followUpsDue: 2,
     });
     assert.equal(data.monthlyTrends.length, 6);
@@ -154,7 +154,7 @@ describe("Overview aggregation", () => {
     assert.deepEqual(data.stats, {
       savedLeads: 0,
       contactedLast7Days: 0,
-      replies: null,
+      interestedLeads: 0,
       followUpsDue: 0,
     });
     assert.ok(data.monthlyTrends.every((point) => point.saved === 0 && point.contacted === 0));

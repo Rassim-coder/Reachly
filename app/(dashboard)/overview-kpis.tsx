@@ -70,10 +70,10 @@ export function OverviewKpis({ stats }: { stats: OverviewMetricStats }) {
         : "Marked contacted · last 7 days",
     },
     {
-      label: "Replies",
-      value: stats.replies,
+      label: "Interested",
+      value: stats.interestedLeads,
       icon: MessageCircleIcon,
-      note: "Reply tracking unavailable",
+      note: "Currently marked Interested",
     },
     {
       label: "Follow-ups Due",

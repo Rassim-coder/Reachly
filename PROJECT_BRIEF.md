@@ -125,7 +125,7 @@ The following status reflects the supplied dashboard specification. It describes
 #### 6.1 Overview
 
 **Implemented from persisted, user-owned data**
-- Welcome banner and KPI cards for all-time Leads Saved, Contacted marked in the last 7 days, Replies (clearly unavailable because replies are not tracked), and current Follow-ups Due.
+- Welcome banner and KPI cards for all-time Leads Saved, Contacted marked in the last 7 days, current Interested Leads, and current Follow-ups Due.
 - Monthly Leads Over Time chart with a working Saved/Contacted toggle. Contacted uses recorded status-change activities, not current status as historical data.
 - Recent Leads, Pipeline by the supported lead statuses, next outstanding Follow-ups, and Leads by Niche.
 

@@ -124,9 +124,11 @@ These behaviors cannot be proven by the unit suite:
 
 - The welcome KPIs, pipeline, niche breakdown, recent leads, and due follow-ups
   read only the signed-in user's persisted records.
+- Interested Leads is the current count of leads with the existing `interested`
+  status; the Overview does not imply that it is a historical conversion event.
 - The monthly Saved/Contacted toggle uses `leads.created_at` and recorded
-  status-change activity timestamps; Replies stays unavailable until reply
-  activity is tracked.
+  status-change activity timestamps; external contact delivery and replies are
+  not inferred from lead status.
 - The header due-today notification uses the UTC date, updates after follow-up
   mutations, and refreshes at UTC midnight.
 - Authenticated data isolation, real event completeness, notification refresh,

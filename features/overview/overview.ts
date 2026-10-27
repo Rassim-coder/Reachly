@@ -57,7 +57,7 @@ export type OverviewMonthlyPoint = {
 export type OverviewMetricStats = {
   savedLeads: number;
   contactedLast7Days: number | null;
-  replies: null;
+  interestedLeads: number;
   followUpsDue: number;
 };
 
@@ -268,7 +268,7 @@ export function buildOverviewData(
       savedLeads: totalLeads,
       contactedLast7Days:
         contactEvents === null ? null : contactedInLast7Days.size,
-      replies: null,
+      interestedLeads: statusCounts.get("interested") ?? 0,
       followUpsDue,
     },
     monthlyTrends,
