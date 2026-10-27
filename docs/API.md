@@ -178,6 +178,14 @@ reuses `updateLeadFollowUp` and `completeLeadFollowUp`. The current UI does not
 need a separate `/api/follow-ups` route. The data model decision about one date
 versus multiple tasks per lead remains open.
 
+Completion clears only the expected `next_follow_up_date` for the authenticated
+owner, then appends a `follow_up_completed` activity. Repeated completion requests
+do not append another event, and stale requests cannot clear a rescheduled date.
+The date clear is revalidated across Follow-ups, My Leads, and Overview. Activity
+history is written after the date mutation; if that insert fails, completion
+remains persisted and the user receives a history warning, so historical
+completion analytics can undercount that failure.
+
 ## 6. Analytics
 
 The Analytics page fetches and aggregates authenticated, owner-scoped lead and

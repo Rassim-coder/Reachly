@@ -290,6 +290,23 @@ describe("lead detail mapping", () => {
     });
   });
 
+  test("maps a completed follow-up without changing the lead status", () => {
+    const mapped = mapLeadDetailRow(
+      { ...detailRow, next_follow_up_date: null },
+      [
+        activity({
+          kind: "follow_up_completed",
+          body: "Follow-up marked complete.",
+          created_at: "2026-10-27T09:00:00.000Z",
+        }),
+      ],
+    );
+
+    assert.equal(mapped?.nextFollowUpDate, null);
+    assert.equal(mapped?.status, "contacted");
+    assert.equal(mapped?.activities[0]?.kind, "follow_up_completed");
+  });
+
   test("keeps only non-empty note activities", () => {
     const mapped = mapLeadDetailRow(detailRow, [
       activity(),

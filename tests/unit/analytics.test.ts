@@ -113,6 +113,22 @@ describe("current analytics metrics", () => {
     assert.deepEqual(current.niches, []);
   });
 
+  test("a completed follow-up leaves the lead/status intact and removes it from due counts", () => {
+    const before = buildCurrentAnalytics(
+      [lead("contacted", "2026-10-27", "dental_clinic")],
+      "2026-10-27",
+    );
+    const after = buildCurrentAnalytics(
+      [lead("contacted", null, "dental_clinic")],
+      "2026-10-27",
+    );
+
+    assert.equal(before.metrics.followUpsDue, 1);
+    assert.equal(after.metrics.followUpsDue, 0);
+    assert.equal(after.metrics.contactedLeads, 1);
+    assert.equal(after.statuses.find((item) => item.status === "contacted")?.count, 1);
+  });
+
   test("limits niches to the ten largest groups", () => {
     const rows = Array.from({ length: 12 }, (_, index) =>
       lead("new", null, `niche_${String(index).padStart(2, "0")}`),

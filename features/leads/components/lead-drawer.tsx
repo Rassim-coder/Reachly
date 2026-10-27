@@ -278,11 +278,12 @@ function LeadDrawerPanel({
 
   function handleCompleteFollowUp() {
     if (!detail || !detail.nextFollowUpDate) return;
+    const expectedDate = detail.nextFollowUpDate;
 
     setFollowUpResult(null);
 
     startFollowUpTransition(async () => {
-      const result = await completeLeadFollowUp(detail.id);
+      const result = await completeLeadFollowUp(detail.id, expectedDate);
       setFollowUpResult(result);
 
       if (!result.ok) return;

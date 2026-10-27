@@ -117,6 +117,11 @@ Constraints and indexes:
 ⚠ `next_follow_up_date` is a **`date`**, not a timestamp: follow-ups have a day
 but no time of day. The follow-up queue must not assume a time.
 
+There is no separate follow-up row or completion column. The current workflow
+marks the one pending follow-up complete by clearing `next_follow_up_date` and
+appending a `follow_up_completed` activity. A null date is the persisted
+outstanding-state signal; the activity is the completion history entry.
+
 **Open design decision:** follow-ups are a single pending date per lead. There is
 no `follow_ups` table, so a lead cannot hold multiple scheduled tasks — see
 `docs/API.md` §5. The current My Leads workflow uses this single-date model.
