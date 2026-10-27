@@ -280,6 +280,7 @@ export async function updateLeadStatus(
     .update({ status })
     .eq("id", leadId)
     .eq("user_id", user.id)
+    .neq("status", status)
     .select("id")
     .maybeSingle();
 
@@ -289,7 +290,24 @@ export async function updateLeadStatus(
   }
 
   if (!data) {
-    return { ok: false, message: "Lead not found." };
+    const { data: existingLead, error: lookupError } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("id", leadId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error("updateLeadStatus: failed to verify unchanged lead", lookupError);
+      return {
+        ok: false,
+        message: "Could not update this lead. Please try again.",
+      };
+    }
+
+    return existingLead
+      ? { ok: true, message: "Lead status is already up to date." }
+      : { ok: false, message: "Lead not found." };
   }
 
   const recorded = await recordLeadActivity(

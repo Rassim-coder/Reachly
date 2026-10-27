@@ -1,166 +1,206 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
+import { buildBulkStatusActivityBody } from "../../features/leads/bulk.ts";
 import {
-  buildAnalyticsSnapshot,
-  buildLeadsByNiche,
-  buildPipelineBreakdown,
-  buildSavedOverTime,
-  parseAnalyticsRange,
+  buildCurrentAnalytics,
+  buildLeadsOverTime,
+  buildOutreachActivity,
+  getAnalyticsRange,
+  getLastCompleteWeeks,
+  parseAnalyticsPeriod,
+  type AnalyticsActivityEvent,
   type AnalyticsLeadRow,
 } from "../../features/analytics/analytics.ts";
 
 function lead(
-  createdAt: string,
   status: AnalyticsLeadRow["status"],
+  nextFollowUpDate: string | null = null,
   category: string | null = "dental_clinic",
 ): AnalyticsLeadRow {
-  return {
-    createdAt,
-    status,
-    nextFollowUpDate: null,
-    category,
-  };
+  return { status, nextFollowUpDate, category };
 }
 
-describe("analytics range parsing", () => {
-  test("uses an explicit, ordered date range", () => {
-    const today = "2026-10-27";
-    const range = parseAnalyticsRange({ from: "2026-10-01", to: "2026-10-31" }, today);
+function activity(
+  leadId: string,
+  kind: AnalyticsActivityEvent["kind"],
+  body: string | null,
+  createdAt: string,
+): AnalyticsActivityEvent {
+  return { leadId, kind, body, createdAt };
+}
 
+describe("analytics date ranges", () => {
+  test("defaults to 30 days and accepts only the supported periods", () => {
+    assert.equal(parseAnalyticsPeriod(undefined), 30);
+    assert.equal(parseAnalyticsPeriod("30"), 30);
+    assert.equal(parseAnalyticsPeriod("7"), 7);
+    assert.equal(parseAnalyticsPeriod("90"), 90);
+    assert.equal(parseAnalyticsPeriod("365"), 30);
+    assert.equal(parseAnalyticsPeriod(["7", "90"]), 7);
+  });
+
+  test("uses inclusive UTC calendar dates and a half-open query end", () => {
+    const range = getAnalyticsRange(7, new Date("2026-10-27T23:59:59.000Z"));
     assert.deepEqual(range, {
-      from: "2026-10-01",
-      to: "2026-10-31",
-      toExclusive: "2026-11-01",
+      period: 7,
+      startDate: "2026-10-21",
+      endDate: "2026-10-27",
+      endExclusive: "2026-10-28",
     });
   });
 
-  test("defaults to the last 30 days when no dates are supplied", () => {
-    const today = "2026-10-27";
-    const range = parseAnalyticsRange({}, today);
-
-    assert.deepEqual(range, {
-      from: "2026-09-28",
-      to: "2026-10-27",
-      toExclusive: "2026-10-28",
-    });
-  });
-
-  test("rejects a reversed date range", () => {
-    const range = parseAnalyticsRange(
-      { from: "2026-10-31", to: "2026-10-01" },
-      "2026-10-27",
-    );
-
-    assert.equal(range, null);
-  });
-
-  test("falls back to defaults for invalid or missing date values", () => {
-    const today = "2026-10-27";
-    const badRange = parseAnalyticsRange({ from: "not-a-date", to: "" }, today);
-
-    assert.deepEqual(badRange, {
-      from: "2026-09-28",
-      to: "2026-10-27",
-      toExclusive: "2026-10-28",
-    });
+  test("returns exactly the last 8 complete Monday-based UTC weeks", () => {
+    const range = getLastCompleteWeeks("2026-10-27");
+    assert.equal(range.startDate, "2026-08-31");
+    assert.equal(range.endExclusive, "2026-10-26");
+    assert.equal(range.weeks.length, 8);
+    assert.equal(range.weeks[0]?.bucket, "2026-08-31");
+    assert.equal(range.weeks[7]?.bucket, "2026-10-19");
   });
 });
 
-describe("analytics grouping", () => {
-  test("buckets saved leads by day inside a 31-day range", () => {
-    const range = {
-      from: "2026-10-01",
-      to: "2026-10-31",
-      toExclusive: "2026-11-01",
-    };
-    const result = buildSavedOverTime(
+describe("current analytics metrics", () => {
+  test("counts current statuses, due dates, and one category per lead", () => {
+    const current = buildCurrentAnalytics(
       [
-        lead("2026-10-01T00:00:00Z", "new"),
-        lead("2026-10-01T23:59:59Z", "contacted"),
-        lead("2026-10-31T23:59:59Z", "new"),
-        lead("2026-11-01T00:00:00Z", "new"),
+        lead("new", "2026-10-27", "dental_clinic"),
+        lead("contacted", "2026-10-28", "dental_clinic"),
+        lead("interested", null, "personal_care_services"),
+        lead("follow_up", "2026-10-20", null),
       ],
-      range,
+      "2026-10-27",
     );
 
-    assert.deepEqual(result, [
-      { bucket: "2026-10-01", label: "01 Oct 2026", saved: 2 },
-      { bucket: "2026-10-31", label: "31 Oct 2026", saved: 1 },
-    ]);
-  });
-
-  test("switches to monthly buckets for a range longer than 31 days", () => {
-    const range = {
-      from: "2026-01-01",
-      to: "2026-12-31",
-      toExclusive: "2027-01-01",
-    };
-    const result = buildSavedOverTime(
+    assert.deepEqual(current.metrics, {
+      savedLeads: 4,
+      contactedLeads: 1,
+      interestedLeads: 1,
+      followUpsDue: 2,
+    });
+    assert.deepEqual(
+      current.statuses.map(({ status, count }) => [status, count]),
       [
-        lead("2026-02-10T00:00:00Z", "new"),
-        lead("2026-02-11T12:00:00Z", "new"),
-        lead("2026-03-15T00:00:00Z", "new"),
+        ["new", 1],
+        ["to_contact", 0],
+        ["contacted", 1],
+        ["interested", 1],
+        ["not_interested", 0],
+        ["follow_up", 1],
       ],
-      range,
     );
-
-    assert.deepEqual(result, [
-      { bucket: "2026-02", label: "Feb 2026", saved: 2 },
-      { bucket: "2026-03", label: "Mar 2026", saved: 1 },
-    ]);
-  });
-
-  test("groups saved leads by status and keeps enum order", () => {
-    const breakdown = buildPipelineBreakdown([
-      lead("2026-10-01T00:00:00Z", "contacted"),
-      lead("2026-10-02T00:00:00Z", "contacted"),
-      lead("2026-10-03T00:00:00Z", "new"),
-      lead("2026-10-04T00:00:00Z", "interested"),
-    ]);
-
-    assert.deepEqual(breakdown, [
-      { status: "new", label: "New", count: 1 },
-      { status: "to_contact", label: "To contact", count: 0 },
-      { status: "contacted", label: "Contacted", count: 2 },
-      { status: "interested", label: "Interested", count: 1 },
-      { status: "not_interested", label: "Not interested", count: 0 },
-      { status: "follow_up", label: "Follow-up", count: 0 },
-    ]);
-  });
-
-  test("groups leads by niche and labels missing categories", () => {
-    const breakdown = buildLeadsByNiche([
-      lead("2026-10-01T00:00:00Z", "new", "dental_clinic"),
-      lead("2026-10-02T00:00:00Z", "new", "dental_clinic"),
-      lead("2026-10-03T00:00:00Z", "new", "personal_care_services"),
-      lead("2026-10-04T00:00:00Z", "new", null),
-    ]);
-
-    assert.deepEqual(breakdown, [
+    assert.deepEqual(current.niches, [
       { category: "dental_clinic", label: "Dental clinic", count: 2 },
       { category: "__no_category__", label: "No category", count: 1 },
-      { category: "personal_care_services", label: "Personal care services", count: 1 },
+      {
+        category: "personal_care_services",
+        label: "Personal care services",
+        count: 1,
+      },
     ]);
   });
 
-  test("returns an empty, zeroed snapshot for an empty dataset", () => {
-    const range = { from: "2026-10-01", to: "2026-10-31", toExclusive: "2026-11-01" };
-    const snapshot = buildAnalyticsSnapshot([], 0, 0, 0, range);
+  test("returns every status at zero percent and handles empty datasets", () => {
+    const current = buildCurrentAnalytics([], "2026-10-27");
+    assert.deepEqual(current.metrics, {
+      savedLeads: 0,
+      contactedLeads: 0,
+      interestedLeads: 0,
+      followUpsDue: 0,
+    });
+    assert.equal(current.statuses.length, 6);
+    assert.ok(current.statuses.every((status) => status.count === 0 && status.percentage === 0));
+    assert.deepEqual(current.niches, []);
+  });
 
-    assert.deepEqual(snapshot.savedLeads, 0);
-    assert.deepEqual(snapshot.contactedLeads, 0);
-    assert.deepEqual(snapshot.interestedLeads, 0);
-    assert.deepEqual(snapshot.followUpsDue, 0);
-    assert.equal(snapshot.overTime.length, 0);
-    assert.equal(snapshot.niches.length, 0);
-    assert.deepEqual(snapshot.pipeline, [
-      { status: "new", label: "New", count: 0 },
-      { status: "to_contact", label: "To contact", count: 0 },
-      { status: "contacted", label: "Contacted", count: 0 },
-      { status: "interested", label: "Interested", count: 0 },
-      { status: "not_interested", label: "Not interested", count: 0 },
-      { status: "follow_up", label: "Follow-up", count: 0 },
-    ]);
+  test("limits niches to the ten largest groups", () => {
+    const rows = Array.from({ length: 12 }, (_, index) =>
+      lead("new", null, `niche_${String(index).padStart(2, "0")}`),
+    );
+    const current = buildCurrentAnalytics(rows, "2026-10-27");
+    assert.equal(current.niches.length, 10);
+    assert.equal(current.niches[0]?.count, 1);
+  });
+});
+
+describe("Leads Over Time", () => {
+  test("uses actual saved timestamps and contacted status-change event timestamps", () => {
+    const range = getAnalyticsRange(7, new Date("2026-10-27T10:00:00.000Z"));
+    const data = buildLeadsOverTime(
+      [
+        { createdAt: "2026-10-21T00:00:00.000Z" },
+        { createdAt: "2026-10-21T23:59:59.000Z" },
+        { createdAt: "2026-10-27T23:59:59.000Z" },
+        { createdAt: "2026-10-28T00:00:00.000Z" },
+      ],
+      [
+        activity("a", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-21T12:00:00.000Z"),
+        activity("a", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-21T13:00:00.000Z"),
+        activity("b", "status_change", buildBulkStatusActivityBody("interested"), "2026-10-22T13:00:00.000Z"),
+        activity("c", "status_change", "Status changed to Contacted.", "2026-10-28T00:00:00.000Z"),
+      ],
+      range,
+    );
+
+    assert.equal(data.length, 7);
+    assert.deepEqual(data[0], {
+      bucket: "2026-10-21",
+      label: "21 Oct",
+      saved: 2,
+      contacted: 1,
+    });
+    assert.equal(data[1]?.contacted, 0);
+    assert.equal(data[6]?.saved, 1);
+    assert.equal(data[6]?.contacted, 0);
+  });
+
+  test("aggregates 90 days into Monday-based weeks and fills zero intervals", () => {
+    const range = getAnalyticsRange(90, new Date("2026-10-27T10:00:00.000Z"));
+    const data = buildLeadsOverTime(
+      [
+        { createdAt: "2026-10-26T00:00:00.000Z" },
+        { createdAt: "2026-10-27T12:00:00.000Z" },
+      ],
+      [],
+      range,
+    );
+
+    assert.ok(data.length >= 13);
+    assert.ok(data.every((point) => point.bucket >= "2026-07-27"));
+    assert.equal(data.at(-1)?.bucket, "2026-10-26");
+    assert.equal(data.at(-1)?.saved, 2);
+    assert.ok(data.slice(0, -1).every((point) => point.saved === 0));
+  });
+});
+
+describe("Outreach Activity", () => {
+  test("counts activity events per complete week, not unique leads", () => {
+    const range = getLastCompleteWeeks("2026-10-27");
+    const events = [
+      activity("same", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-19T08:00:00.000Z"),
+      activity("same", "status_change", buildBulkStatusActivityBody("contacted"), "2026-10-19T09:00:00.000Z"),
+      activity("same", "status_change", buildBulkStatusActivityBody("interested"), "2026-10-20T09:00:00.000Z"),
+      activity("same", "follow_up_completed", "Follow-up marked complete.", "2026-10-25T23:59:59.000Z"),
+      activity("outside", "follow_up_completed", "Follow-up marked complete.", "2026-10-26T00:00:00.000Z"),
+    ];
+    const data = buildOutreachActivity(events, range);
+    const activeWeek = data.find((point) => point.bucket === "2026-10-19");
+
+    assert.equal(data.length, 8);
+    assert.deepEqual(activeWeek, {
+      bucket: "2026-10-19",
+      label: "Week of 19 Oct",
+      contacted: 2,
+      interested: 1,
+      followUpsCompleted: 1,
+      total: 4,
+    });
+    assert.ok(data.filter((point) => point.bucket !== "2026-10-19").every((point) => point.total === 0));
+  });
+
+  test("returns zero-valued weeks for an empty activity dataset", () => {
+    const data = buildOutreachActivity([], getLastCompleteWeeks("2026-10-27"));
+    assert.equal(data.length, 8);
+    assert.ok(data.every((point) => point.total === 0));
   });
 });

@@ -201,21 +201,16 @@ The current navigation badge displays 8.
 
 #### 6.6 Analytics
 
-**Currently works in the UI**
-- Four stat cards: reply rate, average time to reply, contacted this month, and deals won.
-- Contacts-per-week chart.
-- Saved-to-won funnel.
+**Implemented from real records**
+- Current-state cards for leads saved, currently marked contacted, currently interested, and follow-ups due.
+- Leads Over Time line chart with 7/30/90-day filters and daily or weekly buckets.
+- Outreach Activity stacked weekly bars, current status distribution donut, and top niches horizontal bars.
 
-**Missing**
-- All metrics and chart data are hard-coded.
-- No date range or filters.
+**Data limitations**
+- Contacted and interested activity uses timestamped `status_change` history. It represents leads marked with those statuses, not verified calls, emails, or message delivery; failed activity inserts can undercount.
+- Replies, reply rate, average reply time, and deals won are not represented by the current schema and are not displayed.
 
-**Target behavior**
-- Calculate metrics from actual lead and activity data.
-- Add appropriate date filters.
-- Define metric formulas before presenting the numbers as business insights.
-
-Some metrics, such as average reply time and deals won, require additional activity tracking or a defined status model. Do not display fabricated real-world statistics.
+The Analytics page uses server-side, owner-scoped queries and sends only aggregated chart data to the browser.
 
 #### 6.7 Templates
 

@@ -1,12 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
-
 import { connection } from "next/server";
 
-import { ArrowUpRightIcon } from "@/components/ui/icons";
-import { parseAnalyticsRange, type AnalyticsSearchParams } from "@/features/analytics/analytics";
-import { LeadsOverTimeChart } from "@/features/analytics/components/leads-over-time-chart";
-import { getAnalyticsSnapshot } from "@/features/analytics/queries";
 import {
   Card,
   CardHeader,
@@ -14,158 +9,162 @@ import {
   EmptyState,
   PageHeader,
 } from "@/components/ui/page-shell";
+import { LeadsByNicheChart } from "@/features/analytics/components/leads-by-niche-chart";
+import { LeadsOverTimeChart } from "@/features/analytics/components/leads-over-time-chart";
+import { LeadStatusDistributionChart } from "@/features/analytics/components/lead-status-distribution-chart";
+import { OutreachActivityChart } from "@/features/analytics/components/outreach-activity-chart";
+import {
+  parseAnalyticsPeriod,
+  type AnalyticsPeriod,
+} from "@/features/analytics/analytics";
+import { getAnalyticsDashboardData } from "@/features/analytics/queries";
 
 type AnalyticsPageProps = {
-  searchParams?: Promise<AnalyticsSearchParams>;
+  searchParams: Promise<{ range?: string | string[] }>;
 };
 
-/**
- * Analytics overview for the signed-in user.
- *
- * Snapshot cards describe current state. The selected date range only filters
- * the Leads Over Time chart, because there is currently no reliable contact-
- * event history to plot.
- */
-export default async function AnalyticsPage({
-  searchParams,
-}: AnalyticsPageProps) {
+const PERIODS: AnalyticsPeriod[] = [7, 30, 90];
+
+export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   return (
-    <Suspense fallback={<AnalyticsSkeleton />}>
-      <AnalyticsContent searchParams={searchParams} />
-    </Suspense>
+    <DashboardPage>
+      <PageHeader
+        title="Analytics"
+        description="Historical activity and a current view of your lead pipeline."
+      />
+      <Suspense fallback={<AnalyticsSkeleton />}>
+        <AnalyticsContent searchParams={searchParams} />
+      </Suspense>
+    </DashboardPage>
   );
 }
 
 async function AnalyticsContent({
   searchParams,
 }: {
-  searchParams?: Promise<AnalyticsSearchParams>;
+  searchParams: Promise<{ range?: string | string[] }>;
 }) {
-  // `new Date()` inside `parseAnalyticsRange` is intentionally request-time
-  // data, so the page must not attempt to prerender that value.
+  // Request-time date boundaries and URL filters stay behind the Suspense
+  // boundary so the static shell can render and stream immediately.
   await connection();
-  const search = await searchParams;
-  const range = parseAnalyticsRange(search ?? {});
-
-  if (!range) {
-    return (
-      <DashboardPage>
-        <PageHeader title="Analytics" />
-        <Card>
-          <EmptyState
-            title="Invalid date range"
-            description="Use an inclusive YYYY-MM-DD range, with the start date before the end date."
-          />
-        </Card>
-      </DashboardPage>
-    );
-  }
-
-  const result = await getAnalyticsSnapshot(range);
+  const params = await searchParams;
+  const period = parseAnalyticsPeriod(params.range);
+  const result = await getAnalyticsDashboardData(period);
 
   if (!result.ok) {
     return (
-      <DashboardPage>
-        <PageHeader title="Analytics" />
-        <Card>
-          <EmptyState
-            title="Could not load analytics"
-            description={result.message}
-          />
-        </Card>
-      </DashboardPage>
+      <Card>
+        <EmptyState title="Could not load analytics" description={result.message} />
+      </Card>
     );
   }
 
-  const snapshot = result.snapshot;
-
-  if (snapshot.savedLeads === 0) {
-    return (
-      <DashboardPage>
-        <PageHeader title="Analytics" />
-        <EmptyState
-          title="No analytics yet"
-          description="Save businesses as leads to see pipeline and follow-up metrics here."
-          action={
-            <Link
-              href="/find-businesses"
-              className="mt-3 inline-flex items-center gap-1 text-[12px] text-primary"
-            >
-              Find businesses <ArrowUpRightIcon size={11} />
-            </Link>
-          }
-        />
-      </DashboardPage>
-    );
-  }
+  const { data } = result;
+  const current = data.current;
+  const range = data.range;
 
   return (
-    <DashboardPage>
-      <PageHeader
-        title="Analytics"
-        description="Current pipeline, saved leads, and follow-up load."
-      />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <>
+      <section
+        aria-label="Current lead metrics"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
         <MetricCard
           label="Leads Saved"
-          value={snapshot.savedLeads}
-          note="All-time total"
+          value={current?.metrics.savedLeads ?? null}
+          note={current ? "All-time total" : "Current metrics unavailable"}
         />
         <MetricCard
           label="Contacted Leads"
-          value={snapshot.contactedLeads}
-          note="Currently status = contacted"
+          value={current?.metrics.contactedLeads ?? null}
+          note={current ? "Currently marked Contacted" : "Current metrics unavailable"}
         />
         <MetricCard
           label="Interested Leads"
-          value={snapshot.interestedLeads}
-          note="Current state"
+          value={current?.metrics.interestedLeads ?? null}
+          note={current ? "Currently marked Interested" : "Current metrics unavailable"}
         />
         <MetricCard
           label="Follow-ups Due"
-          value={snapshot.followUpsDue}
-          note="Today or earlier"
+          value={current?.metrics.followUpsDue ?? null}
+          note={current ? "Due today or earlier (UTC)" : "Current metrics unavailable"}
         />
+      </section>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <Card>
+          <CardHeader
+            title="Leads Over Time"
+            description={`Saved by creation date; contacted counts recorded transitions to Contacted (${range.startDate}–${range.endDate} UTC).`}
+            action={<PeriodSelector selected={period} />}
+          />
+          <LeadsOverTimeChart
+            data={data.leadsOverTime}
+            error={data.leadsOverTimeError}
+          />
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Lead Status Distribution"
+            description="Current status across all saved leads."
+          />
+          <LeadStatusDistributionChart
+            data={current?.statuses ?? null}
+            total={current?.metrics.savedLeads ?? null}
+            error={data.currentError}
+          />
+        </Card>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card>
-            <CardHeader
-              title="Leads Over Time"
-              description="New saved leads by selected bucket"
-            />
-            <LeadsOverTimeChart data={snapshot.overTime} />
-          </Card>
-        </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader
+            title="Outreach Activity"
+            description="Recorded status and follow-up events · last 8 complete UTC weeks · events, not unique leads."
+          />
+          <OutreachActivityChart
+            data={data.outreachActivity}
+            error={data.outreachError}
+          />
+        </Card>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card>
-            <CardHeader title="Pipeline" description="Leads by current status" />
-            <ul className="space-y-2">
-              {snapshot.pipeline.map((item) => (
-                <li key={item.status} className="flex items-center justify-between">
-                  <span className="text-[12px] text-muted">{item.label}</span>
-                  <span className="text-[12px] font-semibold">{item.count}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card>
-            <CardHeader title="Leads by Niche" description="Business category" />
-            <ul className="space-y-2">
-              {snapshot.niches.map((item) => (
-                <li key={item.category} className="flex items-center justify-between">
-                  <span className="text-[12px] text-muted">{item.label}</span>
-                  <span className="text-[12px] font-semibold">{item.count}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader
+            title="Leads by Niche"
+            description="Top business categories among all currently saved leads; each lead counted once."
+          />
+          <LeadsByNicheChart
+            data={current?.niches ?? null}
+            error={data.currentError}
+          />
+        </Card>
       </div>
-    </DashboardPage>
+    </>
+  );
+}
+
+function PeriodSelector({ selected }: { selected: AnalyticsPeriod }) {
+  return (
+    <nav aria-label="Leads over time date range" className="flex shrink-0 gap-1">
+      {PERIODS.map((period) => {
+        const active = selected === period;
+        return (
+          <Link
+            key={period}
+            href={`/analytics?range=${period}`}
+            aria-current={active ? "page" : undefined}
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+              active
+                ? "border-primary bg-primary/15 text-foreground"
+                : "border-line text-muted hover:bg-field hover:text-foreground"
+            }`}
+          >
+            {period === 7 ? "7 days" : `${period} days`}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -175,13 +174,13 @@ function MetricCard({
   note,
 }: {
   label: string;
-  value: number;
+  value: number | null;
   note: string;
 }) {
   return (
     <Card>
       <p className="text-[12px] text-muted">{label}</p>
-      <p className="mt-1 text-[24px] font-bold">{value}</p>
+      <p className="mt-1 text-[24px] font-bold">{value ?? "—"}</p>
       <p className="mt-0.5 text-[11px] text-faint">{note}</p>
     </Card>
   );
@@ -189,14 +188,33 @@ function MetricCard({
 
 function AnalyticsSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {[0, 1, 2, 3].map((index) => (
-        <Card key={index}>
-          <div className="h-4 w-24 rounded bg-field" />
-          <div className="h-7 w-16 rounded bg-field" />
-          <div className="h-3 w-20 rounded bg-field" />
-        </Card>
-      ))}
+    <div aria-busy="true" aria-live="polite" className="space-y-4">
+      <span className="sr-only">Loading analytics…</span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((item) => (
+          <Card key={item}>
+            <div className="h-4 w-24 animate-pulse rounded bg-field" />
+            <div className="mt-2 h-7 w-14 animate-pulse rounded bg-field" />
+            <div className="mt-2 h-3 w-24 animate-pulse rounded bg-field" />
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        {[0, 1].map((item) => (
+          <Card key={item}>
+            <div className="mb-3 h-4 w-36 animate-pulse rounded bg-field" />
+            <div className="h-[280px] animate-pulse rounded-xl bg-field" />
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {[0, 1].map((item) => (
+          <Card key={item}>
+            <div className="mb-3 h-4 w-36 animate-pulse rounded bg-field" />
+            <div className="h-[280px] animate-pulse rounded-xl bg-field" />
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

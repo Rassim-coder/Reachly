@@ -178,7 +178,29 @@ reuses `updateLeadFollowUp` and `completeLeadFollowUp`. The current UI does not
 need a separate `/api/follow-ups` route. The data model decision about one date
 versus multiple tasks per lead remains open.
 
-## 6. Error Format
+## 6. Analytics
+
+The Analytics page fetches and aggregates authenticated, owner-scoped lead and
+activity rows on the server. It returns only chart aggregates to Recharts client
+components.
+
+- Current KPIs and the status distribution describe all currently saved leads.
+- Leads Over Time supports the last 7, 30, or 90 UTC calendar days (30 by
+  default). Saved counts use `leads.created_at`; the contacted series counts
+  distinct leads per interval with a recorded transition to Contacted.
+- Outreach Activity counts recorded events (not unique leads) in the last 8
+  complete Monday-based UTC weeks: status changes to Contacted or Interested,
+  and `follow_up_completed` activities.
+- Leads by Niche counts current saved leads grouped by the single
+  `businesses.category` value, including an explicit No category group.
+
+There is no dedicated contact-event enum and no tracking of external message
+delivery. Contacted/Interested history comes from `status_change` activity rows;
+because activity inserts are best-effort after the lead update, these charts may
+undercount if an activity insert fails. Replies and deals won remain unsupported
+by the current schema and are not shown.
+
+## 7. Error Format
 
 Use a consistent error response, for example:
 
@@ -202,7 +224,7 @@ Possible error codes:
 
 Do not expose secrets, raw stack traces, or sensitive database details to clients.
 
-## 7. Authentication and Authorization
+## 8. Authentication and Authorization
 
 - Protected lead operations require authentication.
 - Derive the acting user from the verified server-side session.
@@ -210,7 +232,7 @@ Do not expose secrets, raw stack traces, or sensitive database details to client
 - Apply RLS as a second layer of protection.
 - Validate ownership on reads, updates, and deletes.
 
-## 8. TypeScript Types
+## 9. TypeScript Types
 
 Define shared types for:
 - Search request.
@@ -223,6 +245,6 @@ Define shared types for:
 
 Keep frontend expectations aligned with the server implementation.
 
-## 9. API Completion Criteria
+## 10. API Completion Criteria
 
 An endpoint is complete only when its behavior, validation, authorization, error handling, and tests have been verified. Document any remaining limitations.
