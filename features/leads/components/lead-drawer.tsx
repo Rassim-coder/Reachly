@@ -30,6 +30,7 @@ import {
 import type { LeadDetail } from "../lead-detail";
 import { MAX_NOTE_LENGTH } from "../validation";
 import { FollowUpLabel, StatusBadge } from "./lead-list";
+import { TemplatePicker } from "@/features/templates/components/template-picker";
 
 const fieldClasses =
   "w-full rounded-xl border border-line bg-field px-3 py-2 text-[13px] text-foreground placeholder:text-faint focus:border-[#6d3ff0] focus:outline-none disabled:opacity-60";
@@ -548,7 +549,18 @@ function LeadDrawerPanel({
                   <Feedback result={followUpResult} />
                 </div>
               </section>
-
+              <section
+                aria-labelledby="lead-message-heading"
+                className="rounded-xl border border-line p-3"
+              >
+               <h3 id="lead-message-heading" className="text-[12px] font-semibold">
+                 Message
+               </h3>
+               <p className="mt-0.5 mb-2 text-[11px] text-faint">
+                Pick a template, copy it, then contact the business yourself.
+               </p>
+              <TemplatePicker key={detail.id} leadId={detail.id} />
+              </section>
               <section aria-labelledby="lead-note-heading">
                 <h3 id="lead-note-heading" className="text-[12px] font-semibold">
                   Add a note
