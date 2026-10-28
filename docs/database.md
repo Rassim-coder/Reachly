@@ -63,6 +63,10 @@ Created for every new `auth.users` row by the `handle_new_user()` trigger
 | `icp_cities` | `text[]` | Not null, default `{}` |
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` maintained by trigger |
 
+`profiles` has no notification-preference column. The Settings UI stores these
+user-owned visibility preferences in Supabase Auth user metadata via the
+authenticated Auth API; these values are never used for authorization.
+
 ### 2.3 `businesses`
 
 Shared reference data. Records are persisted **only** when a user explicitly saves a search result as a lead — individually or through an explicit bulk selection. Search results are never imported into `businesses` wholesale, and discovery happens via Overture rather than by reading the `businesses` table, so the table is readable only for business records a user has already saved as a lead.

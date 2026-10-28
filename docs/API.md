@@ -195,7 +195,20 @@ leads with `next_follow_up_date =` the current UTC date. It does not create
 notification records; the count is refreshed after follow-up mutations and at
 the next UTC midnight.
 
-## 6. Analytics
+## 6. Settings
+
+- The display name is read from and saved to the authenticated user's
+  `profiles.full_name`; account email is read from Supabase Auth and is
+  read-only in Settings.
+- Light/Dark/System uses the existing `reachly-theme` local-storage preference
+  and the root pre-hydration theme script.
+- Follow-up notification preferences are user-facing settings stored in the
+  authenticated user's Supabase Auth metadata because `profiles` has no
+  notification-preference columns. They only control notification visibility,
+  never follow-up records or authorization. Defaults preserve the existing
+  due-today alert; overdue and upcoming alerts start disabled.
+
+## 7. Analytics
 
 The Analytics page fetches and aggregates authenticated, owner-scoped lead and
 activity rows on the server. It returns only chart aggregates to Recharts client
@@ -221,7 +234,7 @@ because activity inserts are best-effort after the lead update, these charts may
 undercount if an activity insert fails. Replies and deals won remain unsupported
 by the current schema and are not shown.
 
-## 7. Error Format
+## 8. Error Format
 
 Use a consistent error response, for example:
 
@@ -245,7 +258,7 @@ Possible error codes:
 
 Do not expose secrets, raw stack traces, or sensitive database details to clients.
 
-## 8. Authentication and Authorization
+## 9. Authentication and Authorization
 
 - Protected lead operations require authentication.
 - Derive the acting user from the verified server-side session.
@@ -253,7 +266,7 @@ Do not expose secrets, raw stack traces, or sensitive database details to client
 - Apply RLS as a second layer of protection.
 - Validate ownership on reads, updates, and deletes.
 
-## 9. TypeScript Types
+## 10. TypeScript Types
 
 Define shared types for:
 - Search request.
@@ -266,6 +279,6 @@ Define shared types for:
 
 Keep frontend expectations aligned with the server implementation.
 
-## 10. API Completion Criteria
+## 11. API Completion Criteria
 
 An endpoint is complete only when its behavior, validation, authorization, error handling, and tests have been verified. Document any remaining limitations.
