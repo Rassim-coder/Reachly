@@ -226,3 +226,40 @@ Keep frontend expectations aligned with the server implementation.
 ## 9. API Completion Criteria
 
 An endpoint is complete only when its behavior, validation, authorization, error handling, and tests have been verified. Document any remaining limitations.
+
+## 10. AI Assistant Chat — implemented
+
+`POST /api/ai/chat`
+
+Requires the signed-in user's session, explicit per-discussion consent
+(`shareContext: true`), and a server-side `GROQ_API_KEY`.
+
+Request:
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "Help me prioritize my leads." }
+  ],
+  "shareContext": true
+}
+```
+
+`messages` accepts up to 12 user/assistant messages, each 1–1,500 characters,
+and must end with a user message. The endpoint loads the authenticated user's
+ICP niches/cities and default location, exact lead counts by status, and up to
+100 most recently saved leads with business name, category, city, status and
+dates. It does not load or send notes, phone numbers, emails, or websites.
+
+After the user confirms once at the beginning of a discussion, each message
+sends the current conversation and this limited CRM context to Groq. Consent
+and chat history are held in the browser's `sessionStorage` only, restored
+when the same tab reloads, and cleared by starting a new chat. A new
+discussion requires a new confirmation. Nothing is persisted in Supabase.
+Responses are not cached.
+
+The model does not generate SQL or perform writes. It is instructed to
+distinguish recommendations from CRM facts and to disclose when it only has
+the 100 most recent leads. Missing Groq configuration returns `503`; invalid
+requests or missing consent return `400`; database failures return `500`;
+provider failures return `502` or `504`.

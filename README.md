@@ -45,12 +45,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Status
 
-The repository currently contains the project structure, Supabase client and
-auth wiring, the initial database migration, and an authenticated dashboard
-shell with placeholder routes.
+Implemented: authenticated dashboard, live Overture business search, lead
+persistence and management, a date-based follow-up queue, and a conversational
+AI sales assistant that can analyze recent leads and help plan next steps.
+AI chat requires per-discussion context consent and a server-side Groq API key;
+see `docs/development.md`.
 
-Business search, lead persistence, follow-ups, lists, templates, settings
-persistence, analytics, and AI are **not implemented**. Placeholder pages state
-this explicitly and render no mock data.
+Lists, templates, settings persistence, and full Analytics remain unfinished.
+The AI assistant does not create leads, modify data, or generate arbitrary SQL.
 
 See `PROJECT_BRIEF.md` §11 and `docs/roadmap.md` for the authoritative status.
