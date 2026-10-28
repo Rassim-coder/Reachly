@@ -283,7 +283,7 @@ export function AiSalesAssistant() {
   }
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-[1040px] flex-1 flex-col">
+    <div className="mx-auto flex min-h-0 w-full max-w-[1240px] flex-1 flex-col">
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
           <div className="flex items-center gap-3">
@@ -318,7 +318,7 @@ export function AiSalesAssistant() {
           aria-relevant="additions text"
         >
           {messages.length === 0 && !pending ? (
-            <div className="mx-auto max-w-[720px] py-1 sm:py-3">
+            <div className="mx-auto max-w-[900px] py-1 sm:py-3">
               <div className="relative overflow-hidden rounded-[26px] bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_45%,#0a8fe0_100%)] p-6 text-white shadow-card sm:p-8">
                 <div
                   aria-hidden="true"
@@ -367,7 +367,7 @@ export function AiSalesAssistant() {
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex max-w-[760px] flex-col gap-5">
+            <div className="mx-auto flex max-w-[900px] flex-col gap-5">
               {messages.map((message, index) => (
                 <ChatBubble key={`${index}-${message.role}`} message={message} />
               ))}
@@ -421,13 +421,13 @@ export function AiSalesAssistant() {
 
         <div className="shrink-0 border-t border-line bg-field/60 px-4 py-3 sm:px-6 sm:py-4">
           {!storageAvailable ? (
-            <p className="mx-auto mb-3 max-w-[760px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            <p className="mx-auto mb-3 max-w-[900px] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
               This browser session cannot save chat history. Your conversation
               may not be restored after a reload.
             </p>
           ) : null}
 
-          <div className="mx-auto max-w-[760px]">
+          <div className="mx-auto max-w-[900px]">
             {!contextSharingAllowed ? (
               <button
                 type="button"
@@ -576,7 +576,7 @@ function ChatBubble({ message }: { message: AiChatMessage }) {
         </span>
       )}
       <div
-        className={`max-w-[min(88%,620px)] rounded-2xl px-4 py-3 ${
+        className={`max-w-[min(88%,740px)] rounded-2xl px-4 py-3 ${
           isUser
             ? "rounded-tr-md bg-primary text-white"
             : "rounded-tl-md border border-line bg-surface text-foreground shadow-card"
