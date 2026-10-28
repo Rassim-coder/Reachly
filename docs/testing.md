@@ -52,6 +52,7 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/follow-up-queue.test.ts` | Overdue/today/upcoming grouping, exclusion of unscheduled and invalid dates, stable date/name ordering, no duplicate section membership, input immutability, and UTC date-only boundaries |
 | `tests/unit/follow-up-completion.test.ts` | Completion ordering, revalidation, idempotent retries, stale/unauthorized result handling, clear failures, and activity-write warnings |
 | `tests/unit/follow-up-notifications.test.ts` | Zero, singular, and plural due-today notification messages |
+| `tests/unit/settings.test.ts` | Profile-name validation, Light/Dark/System resolution, notification preference defaults, parsing, and mutation validation |
 | `tests/unit/overview.test.ts` | Six-month UTC buckets, lifetime/current metrics, recorded contacted events, due follow-ups, pipeline and niche counts, recent sorting, note selection, and empty data |
 | `tests/unit/analytics.test.ts` | Global 7/30/90-day UTC ranges, current metrics, status and niche grouping, daily/weekly saved/contacted/outreach aggregation, activity-event counts, empty intervals, and zero-lead percentages |
 | `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
@@ -119,6 +120,19 @@ These behaviors cannot be proven by the unit suite:
 - A saved lead is visibly present after the save action.
 - Empty, query-failure, loading, and not-found states render without invented
   data.
+
+### Settings
+
+- The profile name writes only to the authenticated user's `profiles` row; email
+  remains read-only and the shared header/sidebar reflect the saved profile name.
+- Light/Dark/System applies immediately, stays synchronized with the header
+  toggle, and respects OS theme changes when System is selected.
+- Notification toggles default existing accounts safely, persist to the signed-in
+  user's Auth metadata, and change only which real follow-up groups the bell
+  displays.
+- The Settings forms, profile ownership/RLS, cross-session persistence, theme
+  hydration, and enabled/disabled notification counts require browser and
+  authenticated database verification.
 
 ### Overview dashboard
 

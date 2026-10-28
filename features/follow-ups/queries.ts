@@ -9,6 +9,12 @@ import {
 } from "../leads/lead-list";
 import { leadListSelect } from "../leads/queries";
 import {
+  DEFAULT_FOLLOW_UP_NOTIFICATION_PREFERENCES,
+  parseFollowUpNotificationPreferences,
+  type FollowUpNotificationCounts,
+  type FollowUpNotificationPreferences,
+} from "./notifications";
+import {
   groupFollowUps,
   type FollowUpItem,
   type FollowUpNote,
@@ -32,24 +38,80 @@ export type FollowUpQueueResult =
     }
   | { ok: false; message: string };
 
-/** Count only this authenticated user's follow-ups due on the current UTC day. */
-export async function getFollowUpsDueTodayCount(): Promise<number | null> {
+export type FollowUpNotificationSummary = {
+  preferences: FollowUpNotificationPreferences;
+  counts: FollowUpNotificationCounts | null;
+  error: boolean;
+};
+
+/** Counts enabled notification groups for the authenticated user only. */
+export async function getFollowUpNotificationSummary(): Promise<FollowUpNotificationSummary> {
   const user = await getCurrentUser();
-  if (!user) return null;
-
-  const supabase = await createClient();
-  const { count, error } = await supabase
-    .from("leads")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("next_follow_up_date", todayDateString());
-
-  if (error) {
-    console.error("getFollowUpsDueTodayCount: failed to read today's follow-ups", error);
-    return null;
+  if (!user) {
+    return {
+      preferences: { ...DEFAULT_FOLLOW_UP_NOTIFICATION_PREFERENCES },
+      counts: null,
+      error: true,
+    };
   }
 
-  return count ?? 0;
+  const preferences = parseFollowUpNotificationPreferences(
+    user.user_metadata?.reachly_notification_preferences,
+  );
+  const counts: FollowUpNotificationCounts = {
+    dueToday: 0,
+    overdue: 0,
+    upcoming: 0,
+  };
+
+  if (!Object.values(preferences).some(Boolean)) {
+    return { preferences, counts, error: false };
+  }
+
+  const supabase = await createClient();
+  const today = todayDateString();
+  const [dueToday, overdue, upcoming] = await Promise.all([
+    preferences.dueToday
+      ? readFollowUpCount(supabase, user.id, "dueToday", today)
+      : Promise.resolve({ count: 0, error: null }),
+    preferences.overdue
+      ? readFollowUpCount(supabase, user.id, "overdue", today)
+      : Promise.resolve({ count: 0, error: null }),
+    preferences.upcoming
+      ? readFollowUpCount(supabase, user.id, "upcoming", today)
+      : Promise.resolve({ count: 0, error: null }),
+  ]);
+
+  const error = dueToday.error ?? overdue.error ?? upcoming.error;
+  if (error) {
+    console.error("getFollowUpNotificationSummary: failed to read follow-up counts", error);
+    return { preferences, counts: null, error: true };
+  }
+
+  counts.dueToday = dueToday.count;
+  counts.overdue = overdue.count;
+  counts.upcoming = upcoming.count;
+  return { preferences, counts, error: false };
+}
+
+async function readFollowUpCount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  kind: keyof FollowUpNotificationPreferences,
+  today: string,
+): Promise<{ count: number; error: { message: string } | null }> {
+  let query = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .not("next_follow_up_date", "is", null);
+
+  if (kind === "dueToday") query = query.eq("next_follow_up_date", today);
+  if (kind === "overdue") query = query.lt("next_follow_up_date", today);
+  if (kind === "upcoming") query = query.gt("next_follow_up_date", today);
+
+  const { count, error } = await query;
+  return { count: count ?? 0, error };
 }
 
 /**

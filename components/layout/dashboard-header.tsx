@@ -13,9 +13,13 @@ import {
   SettingsIcon,
   SunIcon,
 } from "@/components/ui/icons";
-import { THEME_STORAGE_KEY } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { getFollowUpsDueTodayMessage } from "@/features/follow-ups/notifications";
+import {
+  buildFollowUpNotificationItems,
+  hasEnabledFollowUpNotifications,
+} from "@/features/follow-ups/notifications";
+import type { FollowUpNotificationSummary } from "@/features/follow-ups/queries";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 /**
  * Sticky dashboard header matching
@@ -23,34 +27,29 @@ import { getFollowUpsDueTodayMessage } from "@/features/follow-ups/notifications
  * toggle, notifications, and the account avatar.
  */
 /**
- * Reads the effective theme: the value stored by a previous visit, otherwise
- * the OS preference. Returns `"dark"` during SSR so the first paint matches
- * the dashboard's dark default.
+ * Theme state is shared with Settings and persisted through `lib/theme.ts`.
  */
-function readInitialTheme(): "dark" | "light" {
-  if (typeof window === "undefined") {
-    return "dark";
-  }
-
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === "dark" || stored === "light") {
-    return stored;
-  }
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 export function DashboardHeader({
   userName,
-  followUpsDueToday,
+  followUpNotifications,
 }: {
   userName?: string;
-  followUpsDueToday: number | null;
+  followUpNotifications: FollowUpNotificationSummary;
 }) {
   const router = useRouter();
-  const [theme, setTheme] = useState<"dark" | "light">(readInitialTheme);
+  const { resolvedTheme, setPreference } = useThemePreference();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const notificationItems = followUpNotifications.counts
+    ? buildFollowUpNotificationItems(
+        followUpNotifications.counts,
+        followUpNotifications.preferences,
+      )
+    : [];
+  const notificationCount = notificationItems.reduce(
+    (sum, item) => sum + item.count,
+    0,
+  );
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -88,10 +87,7 @@ export function DashboardHeader({
   }, [notificationsOpen, accountMenuOpen]);
 
   function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.dataset.theme = next;
-    window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    setPreference(resolvedTheme === "dark" ? "light" : "dark");
   }
 
   return (
@@ -120,19 +116,19 @@ export function DashboardHeader({
       <button
         type="button"
         onClick={toggleTheme}
-        aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         className="grid size-[30px] place-items-center rounded-full text-muted hover:bg-field"
       >
-        {theme === "dark" ? <MoonIcon size={16} /> : <SunIcon size={16} />}
+        {resolvedTheme === "dark" ? <MoonIcon size={16} /> : <SunIcon size={16} />}
       </button>
 
       <div className="relative">
         <button
           type="button"
           aria-label={
-            followUpsDueToday === null
+            followUpNotifications.error || followUpNotifications.counts === null
               ? "Notifications"
-              : `Notifications, ${followUpsDueToday} follow-ups due today`
+              : `Notifications, ${notificationCount} follow-ups`
           }
           aria-expanded={notificationsOpen}
           aria-controls="dashboard-notifications"
@@ -143,12 +139,12 @@ export function DashboardHeader({
           className="relative grid size-[30px] place-items-center rounded-full text-muted hover:bg-field"
         >
           <BellIcon size={16} />
-          {followUpsDueToday !== null && followUpsDueToday > 0 ? (
+          {!followUpNotifications.error && notificationCount > 0 ? (
             <span
               aria-hidden="true"
               className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white"
             >
-              {followUpsDueToday > 99 ? "99+" : followUpsDueToday}
+              {notificationCount > 99 ? "99+" : notificationCount}
             </span>
           ) : null}
         </button>
@@ -160,27 +156,42 @@ export function DashboardHeader({
             className="absolute top-full right-0 z-50 mt-2 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-3 shadow-card"
           >
             <h2 className="text-[12px] font-semibold">Notifications</h2>
-            {followUpsDueToday === null ? (
+            {followUpNotifications.error || followUpNotifications.counts === null ? (
               <p role="status" className="mt-2 text-[12px] text-muted">
                 Today&apos;s follow-ups could not be loaded. Please try again later.
               </p>
-            ) : followUpsDueToday === 0 ? (
+            ) : !hasEnabledFollowUpNotifications(followUpNotifications.preferences) ? (
+              <div className="mt-2 text-[12px] text-muted">
+                <p>Follow-up notifications are turned off.</p>
+                <Link
+                  href="/settings"
+                  onClick={() => setNotificationsOpen(false)}
+                  className="mt-1 inline-block text-[11px] text-primary hover:underline"
+                >
+                  Manage notification settings
+                </Link>
+              </div>
+            ) : notificationItems.length === 0 ? (
               <p role="status" className="mt-2 text-[12px] text-muted">
-                {getFollowUpsDueTodayMessage(0)}
+                No follow-up notifications right now.
               </p>
             ) : (
-              <Link
-                href="/follow-ups"
-                onClick={() => setNotificationsOpen(false)}
-                className="mt-2 block rounded-lg p-2 text-[12px] text-foreground transition-colors hover:bg-field"
-              >
-                <span className="block">
-                  {getFollowUpsDueTodayMessage(followUpsDueToday)}
-                </span>
-                <span className="mt-1 block text-[11px] text-primary">
-                  View Follow-ups →
-                </span>
-              </Link>
+              <ul className="mt-2 space-y-1">
+                {notificationItems.map((item) => (
+                  <li key={item.type}>
+                    <Link
+                      href="/follow-ups"
+                      onClick={() => setNotificationsOpen(false)}
+                      className="block rounded-lg p-2 text-[12px] text-foreground transition-colors hover:bg-field"
+                    >
+                      <span className="block">{item.message}</span>
+                      <span className="mt-1 block text-[11px] text-primary">
+                        View Follow-ups →
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         ) : null}
