@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { AddToListControl } from "@/features/lists/components/add-to-list-control";
 
 import {
   bulkDeleteLeads,
@@ -231,8 +232,15 @@ export function LeadBulkActions({
             >
               Clear dates
             </button>
-
+              
             <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
+
+            <AddToListControl
+              selectedIds={selectedIds}
+              disabled={actionsDisabled}
+              onResult={onMutated}
+              onAdded={onClearSelection}
+            />
 
             <button
               type="button"
