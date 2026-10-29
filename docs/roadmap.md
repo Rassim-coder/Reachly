@@ -178,18 +178,23 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Choose an initial AI use case.
-- [ ] Implement server-side model access.
+- [x] Choose an initial AI use case: conversational, read-only sales assistance.
+- [x] Implement server-side Groq model access.
+- [x] Add personalized lead analysis and next-step recommendations using the
+  user's prospecting preferences and recent CRM records.
+- [x] Add session-only conversation history and one-time context consent per
+  discussion.
 - [ ] Add lead qualification or outreach drafting.
 - [ ] Add language and tone options if needed.
-- [ ] Evaluate output quality and failure handling.
+- [x] Add validation, provider failure handling, and unit tests for metric calculations.
 - [ ] Track usage and costs.
 
 Acceptance criteria:
 
 - AI features use real backend integration.
 - Model credentials are never exposed to the client.
-- Generated suggestions are clearly distinguished from verified facts.
+- Database figures are calculated server-side, with the AI explanation clearly
+  separated from verified facts.
 
 ## Immediate Next Step
 

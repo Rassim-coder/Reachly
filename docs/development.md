@@ -1,4 +1,4 @@
-# Reachly — Development Setup
+p# Reachly — Development Setup
 
 ## 1. Prerequisites
 
@@ -18,14 +18,24 @@ pnpm install
 Copy `.env.example` to `.env` and fill it in from
 Supabase Dashboard → Project Settings → API:
 
-| Variable | Scope | Notes |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | client + server | Project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | client + server | Publishable key; safe in the browser, RLS enforces access |
-| `NEXT_PUBLIC_SITE_URL` | server | Canonical site URL; preferred over request Origin for auth redirects |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Optional for other privileged server operations. Not required by the current lead-saving path, which uses the authenticated `save_businesses_as_leads` RPC. Never prefix with `NEXT_PUBLIC_`. `lib/supabase/admin.ts` remains available but is unused by lead saving. |
+| Variable                               | Scope           | Notes                                                                                                                                                                                                                                                                 |
+| -------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | client + server | Project URL                                                                                                                                                                                                                                                           |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | client + server | Publishable key; safe in the browser, RLS enforces access                                                                                                                                                                                                             |
+| `NEXT_PUBLIC_SITE_URL`                 | server          | Canonical site URL; preferred over request Origin for auth redirects                                                                                                                                                                                                  |
+| `SUPABASE_SERVICE_ROLE_KEY`            | **server only** | Optional for other privileged server operations. Not required by the current lead-saving path, which uses the authenticated `save_businesses_as_leads` RPC. Never prefix with `NEXT_PUBLIC_`. `lib/supabase/admin.ts` remains available but is unused by lead saving. |
 
 `.env` is git-ignored; `.env.example` is committed.
+
+AI Assistant requires a GroqCloud API key in `GROQ_API_KEY`. Keep it
+server-only; do not use a `NEXT_PUBLIC_` prefix. `GROQ_MODEL` optionally
+overrides the model ID (default: `openai/gpt-oss-20b`). At the beginning of
+each discussion, the user confirms once that the current chat, target
+niches/cities, default location, and up to 100 recent leads (business name,
+category, city, status, and dates) may be sent to Groq. That consent is
+remembered for the discussion and restored after reloading the same tab.
+Starting a new chat asks again. Notes and contact details are excluded. Chat
+history is stored in the current browser tab's `sessionStorage`, not Supabase.
 
 ## 4. Supabase CLI
 

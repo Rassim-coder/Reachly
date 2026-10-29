@@ -1,17 +1,9 @@
-import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
+import { AiSalesAssistant } from "@/features/ai/components/ai-sales-assistant";
 
 export default function AiAssistantPage() {
   return (
-    <DashboardPage>
-      <PendingFeature
-        title="AI Assistant"
-        description="Lead qualification and outreach drafts."
-        planned={[
-          "Server-side model integration — credentials never reach the browser.",
-          "Lead scoring and outreach drafting.",
-          "AI suggestions kept clearly distinguishable from verified business data.",
-        ]}
-      />
-    </DashboardPage>
+    <div className="mx-auto flex h-[calc(100dvh-50px)] w-full max-w-[1316px] flex-col p-3 lg:p-[18px]">
+      <AiSalesAssistant />
+    </div>
   );
 }

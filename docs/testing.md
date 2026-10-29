@@ -58,6 +58,7 @@ DuckDB, network access, a browser, or environment variables.
 | `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
 | `tests/unit/lead-bulk.test.ts` | Page-scoped select/deselect and indeterminate state, selection pruning, empty/invalid/oversized ids, status validation, changed/unchanged/missing-row planning, status and follow-up summaries, partial failures, batched activity payloads, delete confirmation copy, full/partial/failed deletion results |
 | `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
+| `tests/unit/ai-chat.test.ts` | Chat-history validation, message limits, and minimal CRM context summaries |
 
 The lead validation was extracted from `features/leads/actions.ts` into
 `features/leads/validation.ts` so it can run without a Next.js request context.

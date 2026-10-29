@@ -232,24 +232,22 @@ The Analytics page uses server-side, owner-scoped queries and sends only aggrega
 
 #### 6.8 AI Assistant
 
-The navigation badge says Soon.
+**Implemented — AI Sales Assistant**
+- Conversational chat with session-only history and suggested questions.
+- Uses the signed-in user's prospecting preferences, exact lead-status counts,
+  and up to 100 recent leads to help analyze the pipeline and suggest next steps.
+- Requests explicit confirmation once at the start of each discussion before
+  sending the chat and selected Reachly context to Groq; the consent is
+  remembered for that chat session.
+- Excludes lead notes and contact details from Groq requests.
+- Keeps the AI explanation separate from the source CRM data; the model cannot
+  run queries or modify leads.
+- Configure Groq server-side with `GROQ_API_KEY`; see `docs/development.md`.
 
-**Currently works in the UI**
-- Preview containing an example lead score and sample draft message.
-- Disabled action button.
-
-**Missing**
-- Lead scoring.
-- Message drafting.
-- Language and tone options.
-- Reply handling.
-- Backend integration with an AI model.
-
-**Target behavior**
-- Add AI capabilities only after the core search and CRM workflows are reliable.
-- Start with one or two useful features, such as lead qualification and outreach drafting.
-- Keep AI-generated suggestions distinguishable from verified business data.
-- Do not claim to handle replies automatically unless a real integration is implemented.
+**Still missing**
+- Lead qualification, outreach drafting, reply handling, and configurable
+  language/tone options.
+- Usage and cost tracking.
 
 ### Settings
 
