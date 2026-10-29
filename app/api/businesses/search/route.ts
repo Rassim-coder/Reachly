@@ -111,7 +111,7 @@ export async function POST(request: Request) {
   if (cursorValue && !decodedCursor) {
     return errorResponse(
       "VALIDATION_ERROR",
-      "The pagination cursor is invalid or no longer matches the pinned Overture release. Run the search again.",
+      "The pagination cursor is invalid or has expired. Run the search again.",
       400,
     );
   }

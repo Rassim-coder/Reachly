@@ -503,7 +503,7 @@ export function BusinessSearch() {
           <div aria-live="polite">
             <p className="text-[13px] font-medium">Restoring your last search…</p>
             <p className="mt-1 text-[12px] text-muted">
-              Checking this tab for temporary results. No new Overture search is
+              Checking this tab for temporary results. No new search is
               started.
             </p>
           </div>
@@ -564,7 +564,7 @@ export function BusinessSearch() {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[11px] text-faint">
-              Use “City, Country”. Searches query the live Overture Maps dataset, so the
+              Use “City, Country”. Searches use live business data, so the
               first request can take up to about a minute. Results load 50 at a time.
             </p>
 
@@ -607,9 +607,9 @@ export function BusinessSearch() {
       {searching ? (
         <Card>
           <div aria-live="polite" className="flex flex-col gap-2">
-            <p className="text-[13px] font-medium">Searching Overture Maps…</p>
+            <p className="text-[13px] font-medium">Searching for businesses…</p>
             <p className="text-[12px] text-muted">
-              DuckDB is reading the remote Parquet dataset. This can take up to a
+              We’re checking the latest business data. This can take up to a
               minute on the first request.
               {state.status === "success"
                 ? " The previous results stay visible until this search succeeds."
@@ -631,7 +631,7 @@ export function BusinessSearch() {
         <Card>
           <EmptyState
             title="Search real businesses"
-            description="Enter a niche and a location to pull businesses from Overture Maps. Nothing is saved until you save a lead or add selected businesses to My Leads."
+            description="Enter a niche and a location to search live business data. Nothing is saved until you save a lead or add selected businesses to My Leads."
           />
         </Card>
       ) : null}
@@ -654,7 +654,7 @@ export function BusinessSearch() {
         <Card>
           <EmptyState
             title="No matching businesses"
-            description="Overture has no businesses for this niche in that area. Try a broader niche or another city."
+            description="No businesses matched this niche in that area. Try a broader niche or another city."
           />
         </Card>
       ) : null}
@@ -900,7 +900,7 @@ export function BusinessSearch() {
                 </button>
                 <p className="text-[11px] text-faint">
                   {state.loadingMore
-                    ? "Querying the next batch from Overture Maps…"
+                    ? "Loading the next batch of businesses…"
                     : state.moreError
                       ? "Your current results are safe. You can retry this batch."
                     : "More results are available."}
