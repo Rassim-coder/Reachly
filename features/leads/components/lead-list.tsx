@@ -40,13 +40,30 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
 export function FollowUpLabel({
   date,
   withDate = false,
+  completedAt = null,
 }: {
   date: string | null;
   withDate?: boolean;
+  completedAt?: string | null;
 }) {
   const state = getLeadFollowUpState(date);
 
   if (state === "none") {
+    if (completedAt) {
+      return (
+        <span className="inline-flex flex-col items-start gap-0.5">
+          <span className="inline-flex w-fit items-center rounded-full border border-positive/30 bg-positive-soft px-2 py-0.5 text-[10px] font-medium text-positive">
+            Completed
+          </span>
+          {withDate ? (
+            <span className="text-[11px] text-muted">
+              {formatLeadDate(completedAt) ?? "Completion date unavailable"}
+            </span>
+          ) : null}
+        </span>
+      );
+    }
+
     return <span className="text-[12px] text-faint">Not scheduled</span>;
   }
 
@@ -178,7 +195,11 @@ export function LeadTable({
                   {formatLeadDate(lead.createdAt) ?? "—"}
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap">
-                  <FollowUpLabel date={lead.nextFollowUpDate} withDate />
+                  <FollowUpLabel
+                    date={lead.nextFollowUpDate}
+                    completedAt={lead.followUpCompletedAt}
+                    withDate
+                  />
                 </td>
               </tr>
             );

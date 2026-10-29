@@ -279,11 +279,12 @@ function LeadDrawerPanel({
 
   function handleCompleteFollowUp() {
     if (!detail || !detail.nextFollowUpDate) return;
+    const expectedDate = detail.nextFollowUpDate;
 
     setFollowUpResult(null);
 
     startFollowUpTransition(async () => {
-      const result = await completeLeadFollowUp(detail.id);
+      const result = await completeLeadFollowUp(detail.id, expectedDate);
       setFollowUpResult(result);
 
       if (!result.ok) return;
@@ -490,7 +491,10 @@ function LeadDrawerPanel({
                   >
                     Next follow-up
                   </h3>
-                  <FollowUpLabel date={detail.nextFollowUpDate} />
+                  <FollowUpLabel
+                    date={detail.nextFollowUpDate}
+                    completedAt={detail.followUpCompletedAt}
+                  />
                 </div>
 
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">

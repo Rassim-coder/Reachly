@@ -4,7 +4,7 @@
 
 Unit tests exist for pure business-search, temporary search persistence, lead
 validation, lead-saving result parsing, My Leads mapping/presentation logic, and
-Follow-ups date grouping.
+Follow-ups date grouping, and Analytics calculations.
 
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
@@ -18,6 +18,9 @@ Follow-ups date grouping.
 - Follow-ups has a dedicated server-rendered queue grouped into Overdue, Today,
   and Upcoming, with inline reschedule/completion and the existing detail drawer.
   Its authenticated database paths are also unverified.
+- Analytics aggregates all queried lead/activity data on the server. Its live
+  Supabase queries, RLS isolation, and Recharts rendering still require manual
+  verification.
 
 The suite uses Node's built-in test runner (`node:test`) and native TypeScript
 type stripping. It adds **no test framework dependency**. Tests were verified on
@@ -40,12 +43,18 @@ DuckDB, network access, a browser, or environment variables.
 | File | Behavior covered |
 |---|---|
 | `tests/unit/result-filters.test.ts` | Website/phone/email presence filters, AND combinations, empty results, whitespace/null handling, active-filter detection, no mutation of loaded rows |
+| `tests/unit/search-errors.test.ts` | User-safe initial/Load more errors, validation and stale-cursor messaging, network failures, and suppression of raw provider diagnostics |
 | `tests/unit/search-session.test.ts` | Search snapshot round-trip for criteria/results/filters/pagination, stale selected-ID pruning, malformed/expired cache rejection, criteria-only size fallback, quota failure behavior, empty-result restoration, and clearing only the temporary search key |
 | `tests/unit/cursor.test.ts` | Cursor round-trip, URL-safe encoding, release/version rejection, malformed payloads, bbox shape and ranges, category and keyset-ID validation, size limit, strict output shape |
 | `tests/unit/normalize.test.ts` | Overture row → API mapping, trimming, nullable contact fields, zero/negative coordinates, non-finite coordinates, blank name/id rejection, batch filtering |
 | `tests/unit/lead-validation.test.ts` | Required source ID/name, length limits, optional text fields, latitude/longitude bounds, non-string/non-finite values, bulk deduplication and invalid counts, RPC payload mapping, note validation, follow-up date validation |
-| `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date and timestamp formatting, category/location formatting, follow-up states, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail, notes and activity mapping, lead id validation |
+| `tests/unit/lead-list.test.ts` | Actual lead-status labels and runtime status guard, UTC date and timestamp formatting, category/location formatting, follow-up states and completed-history indicator, safe website links, joined lead/business row mapping, nullable contact fields, missing business handling, lead detail, notes and activity mapping, lead id validation |
 | `tests/unit/follow-up-queue.test.ts` | Overdue/today/upcoming grouping, exclusion of unscheduled and invalid dates, stable date/name ordering, no duplicate section membership, input immutability, and UTC date-only boundaries |
+| `tests/unit/follow-up-completion.test.ts` | Completion ordering, revalidation, idempotent retries, stale/unauthorized result handling, clear failures, and activity-write warnings |
+| `tests/unit/follow-up-notifications.test.ts` | Zero, singular, and plural due-today notification messages |
+| `tests/unit/settings.test.ts` | Profile-name validation, Light/Dark/System resolution, notification preference defaults, parsing, and mutation validation |
+| `tests/unit/overview.test.ts` | Six-month UTC buckets, lifetime/current metrics, recorded contacted events, due follow-ups, pipeline and niche counts, recent sorting, note selection, and empty data |
+| `tests/unit/analytics.test.ts` | Global 7/30/90-day UTC ranges, current metrics, status and niche grouping, daily/weekly saved/contacted/outreach aggregation, activity-event counts, empty intervals, and zero-lead percentages |
 | `tests/unit/lead-filters.test.ts` | Filter defaults and enum validation, page clamping, active-filter detection, page size, LIKE-pattern escaping, humanized category matching, safe page fallback after deleting the last rows on a page |
 | `tests/unit/lead-bulk.test.ts` | Page-scoped select/deselect and indeterminate state, selection pruning, empty/invalid/oversized ids, status validation, changed/unchanged/missing-row planning, status and follow-up summaries, partial failures, batched activity payloads, delete confirmation copy, full/partial/failed deletion results |
 | `tests/unit/lead-save-result.test.ts` | RPC JSON result parsing, malformed/inconsistent result rejection, single-save messages, bulk partial-success counts |
@@ -112,6 +121,34 @@ These behaviors cannot be proven by the unit suite:
 - Empty, query-failure, loading, and not-found states render without invented
   data.
 
+### Settings
+
+- The profile name writes only to the authenticated user's `profiles` row; email
+  remains read-only and the shared header/sidebar reflect the saved profile name.
+- Light/Dark/System applies immediately, stays synchronized with the header
+  toggle, and respects OS theme changes when System is selected.
+- Notification toggles default existing accounts safely, persist to the signed-in
+  user's Auth metadata, and change only which real follow-up groups the bell
+  displays.
+- The Settings forms, profile ownership/RLS, cross-session persistence, theme
+  hydration, and enabled/disabled notification counts require browser and
+  authenticated database verification.
+
+### Overview dashboard
+
+- The welcome KPIs, pipeline, niche breakdown, recent leads, and due follow-ups
+  read only the signed-in user's persisted records.
+- Interested Leads is the current count of leads with the existing `interested`
+  status; the Overview does not imply that it is a historical conversion event.
+- The monthly Saved/Contacted toggle uses `leads.created_at` and recorded
+  status-change activity timestamps; external contact delivery and replies are
+  not inferred from lead status.
+- The header due-today notification uses the UTC date, updates after follow-up
+  mutations, and refreshes at UTC midnight.
+- Authenticated data isolation, real event completeness, notification refresh,
+  chart interaction, responsive layout, and reduced-motion rendering require
+  browser/database verification.
+
 ### Dedicated Follow-ups queue
 
 - A signed-in user's scheduled leads are returned with joined business and
@@ -123,9 +160,31 @@ These behaviors cannot be proven by the unit suite:
 - Inline reschedule and completion actions persist the date change, record the
   correct activity, refresh sections/counts, and never change status implicitly.
 - Completion clears the date only after the update succeeds.
+- Completion is scoped to the expected date, so a stale request cannot clear a
+  rescheduled follow-up; a repeated request does not append duplicate activity.
 - Another user cannot read or mutate a follow-up by id.
 - The drawer, inline controls, mobile wrapping, busy state, and error feedback
   require browser verification.
+- The dashboard bell uses the signed-in user's UTC due-today count and links to
+  Follow-ups; badge updates after mutations and the UTC date rollover require
+  authenticated browser verification.
+
+### Analytics
+
+- The global 7/30/90-day selector changes both historical chart queries; 7/30
+  days aggregate daily and 90 days aggregate into Monday-based UTC weeks with
+  empty buckets.
+- Saved events use lead creation timestamps; contacted values use recorded
+  status-change activity rows targeting Contacted, never current status as a
+  historical substitute.
+- Outreach counts recorded Contacted/Interested status changes and completed
+  follow-up activities in the selected date range; event counts are not
+  unique-lead counts.
+- Current status/niche counts use each owned lead once; empty categories and
+  zero-lead percentages render safely.
+- Owner scoping, activity-history completeness, URL selection, tooltips, legends,
+  responsive chart rendering, and chart error/empty states require authenticated
+  database and browser verification.
 
 ### Bulk My Leads actions
 

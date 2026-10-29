@@ -6,7 +6,7 @@ export default function FindBusinessesPage() {
     <DashboardPage>
       <PageHeader
         title="Find Businesses"
-        description="Search real businesses from Overture Maps by niche and location."
+        description="Search real businesses by niche and location."
       />
       <BusinessSearch />
     </DashboardPage>

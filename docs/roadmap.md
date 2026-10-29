@@ -122,11 +122,13 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Define the meaning and formula of each metric.
-- [ ] Connect the overview cards to real data.
-- [ ] Connect Recent Leads, Pipeline, Follow-ups Due, and Leads by Niche.
-- [ ] Connect the Leads Over Time chart.
-- [ ] Add analytics date filters.
+- [x] Define the meaning and formula of each implemented metric.
+- [x] Connect the overview cards to real data.
+- [ ] Connect Recent Leads, Pipeline, Follow-ups Due, and Leads by Niche panels
+  on the Overview page.
+- [x] Connect Analytics pipeline, status distribution, and Leads by Niche.
+- [x] Connect the Leads Over Time and Outreach Activity charts.
+- [x] Add 7/30/90-day Leads Over Time filters.
 - [ ] Define how replies and deals won are recorded.
 
 Acceptance criteria:

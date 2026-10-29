@@ -19,6 +19,8 @@ import {
 import {
   mapLeadRow,
   todayDateString,
+  withFollowUpCompletionState,
+  type LeadFollowUpHistoryRow,
   type LeadListItem,
   type LeadListRow,
 } from "./lead-list";
@@ -58,6 +60,7 @@ export type MyLeadsSuccess = {
   pageSize: number;
   pageCount: number;
   filters: LeadListFilters;
+  followUpHistoryWarning: string | null;
 };
 
 export type MyLeadsResult =
@@ -165,9 +168,21 @@ export async function getMyLeadsPage(
     };
   }
 
-  const leads = ((data ?? []) as unknown as LeadListRow[])
+  const mappedLeads = ((data ?? []) as unknown as LeadListRow[])
     .map((row) => mapLeadRow(row))
     .filter((lead): lead is LeadListItem => lead !== null);
+  const unscheduledLeadIds = mappedLeads
+    .filter((lead) => lead.nextFollowUpDate === null)
+    .map((lead) => lead.id);
+  const followUpHistory = await getFollowUpHistory(
+    supabase,
+    user.id,
+    unscheduledLeadIds,
+  );
+  const leads = withFollowUpCompletionState(
+    mappedLeads,
+    followUpHistory.activities,
+  );
   const total = count ?? leads.length;
   const pageCount = Math.max(1, Math.ceil(total / LEAD_PAGE_SIZE));
 
@@ -179,7 +194,64 @@ export async function getMyLeadsPage(
     pageSize: LEAD_PAGE_SIZE,
     pageCount,
     filters,
+    followUpHistoryWarning: followUpHistory.warning,
   };
+}
+
+const FOLLOW_UP_HISTORY_PAGE_SIZE = 500;
+
+async function getFollowUpHistory(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  leadIds: string[],
+): Promise<{ activities: LeadFollowUpHistoryRow[]; warning: string | null }> {
+  if (leadIds.length === 0) return { activities: [], warning: null };
+
+  const activities: LeadFollowUpHistoryRow[] = [];
+  const leadsWithHistory = new Set<string>();
+
+  try {
+    for (let offset = 0; ; offset += FOLLOW_UP_HISTORY_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from("lead_activities")
+        .select("id, lead_id, kind, created_at")
+        .eq("user_id", userId)
+        .in("lead_id", leadIds)
+        .in("kind", ["follow_up_scheduled", "follow_up_cleared", "follow_up_completed"])
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(offset, offset + FOLLOW_UP_HISTORY_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error("getMyLeadsPage: failed to read follow-up history", error);
+        return {
+          activities,
+          warning:
+            "Follow-up completion history could not be loaded. Some completed follow-ups may not be labeled.",
+        };
+      }
+
+      const page = (data ?? []) as unknown as LeadFollowUpHistoryRow[];
+      activities.push(...page);
+      for (const activity of page) leadsWithHistory.add(activity.lead_id);
+
+      if (
+        page.length < FOLLOW_UP_HISTORY_PAGE_SIZE ||
+        leadsWithHistory.size === leadIds.length
+      ) {
+        break;
+      }
+    }
+
+    return { activities, warning: null };
+  } catch (error) {
+    console.error("getMyLeadsPage: follow-up history query threw", error);
+    return {
+      activities,
+      warning:
+        "Follow-up completion history could not be loaded. Some completed follow-ups may not be labeled.",
+    };
+  }
 }
 
 const LEAD_DETAIL_SELECT = `
@@ -239,7 +311,7 @@ export async function getLeadDetails(
 
   const supabase = await createClient();
 
-  const [leadResult, activityResult] = await Promise.all([
+  const [leadResult, activityResult, followUpHistoryResult] = await Promise.all([
     supabase
       .from("leads")
       .select(LEAD_DETAIL_SELECT)
@@ -253,6 +325,16 @@ export async function getLeadDetails(
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(ACTIVITY_LIMIT),
+    supabase
+      .from("lead_activities")
+      .select(LEAD_ACTIVITY_SELECT)
+      .eq("lead_id", leadId)
+      .eq("user_id", user.id)
+      .in("kind", ["follow_up_scheduled", "follow_up_cleared", "follow_up_completed"])
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (leadResult.error) {
@@ -280,9 +362,22 @@ export async function getLeadDetails(
     };
   }
 
+  if (followUpHistoryResult.error) {
+    console.error(
+      "getLeadDetails: failed to read latest follow-up history",
+      followUpHistoryResult.error,
+    );
+    return {
+      ok: false,
+      reason: "error",
+      message: "Could not load this lead's follow-up history. Please try again.",
+    };
+  }
+
   const lead = mapLeadDetailRow(
     leadResult.data as unknown as LeadDetailRow,
     (activityResult.data ?? []) as unknown as LeadActivityRow[],
+    (followUpHistoryResult.data ?? null) as unknown as LeadActivityRow | null,
   );
 
   if (!lead) {
