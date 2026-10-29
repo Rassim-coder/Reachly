@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { getFollowUpNotificationSummary } from "@/features/follow-ups/queries";
+import { getProfileDisplayName } from "@/features/settings/queries";
 import { getCurrentUser } from "@/lib/auth/session";
 
 /**
@@ -33,15 +35,26 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const [followUpNotifications, profileDisplayName] = await Promise.all([
+    getFollowUpNotificationSummary(),
+    getProfileDisplayName(),
+  ]);
+
   const displayName =
-    user.user_metadata.full_name?.trim() || user.email?.split("@")[0] || null;
+    profileDisplayName ||
+    user.user_metadata.full_name?.trim() ||
+    user.email?.split("@")[0] ||
+    null;
 
   return (
     <div className="flex min-h-dvh flex-1">
       <DashboardNav userName={displayName} onSignOutSlot={<SignOutButton />} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <DashboardHeader userName={displayName} />
+        <DashboardHeader
+          userName={displayName}
+          followUpNotifications={followUpNotifications}
+        />
 
         <main className="flex flex-1 flex-col">{children}</main>
       </div>

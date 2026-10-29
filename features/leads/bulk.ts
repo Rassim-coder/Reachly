@@ -179,6 +179,21 @@ export function buildBulkStatusActivityBody(status: LeadStatus): string {
   return `Status changed to ${LEAD_STATUS_LABELS[status]}.`;
 }
 
+export type FollowUpCompletionState =
+  | "already_cleared"
+  | "rescheduled"
+  | "still_scheduled";
+
+/** Classifies a guarded completion update that matched no row. */
+export function classifyFollowUpCompletionMiss(
+  currentDate: string | null,
+  expectedDate: string,
+): FollowUpCompletionState {
+  if (currentDate === null) return "already_cleared";
+  if (currentDate !== expectedDate) return "rescheduled";
+  return "still_scheduled";
+}
+
 export function buildBulkFollowUpActivity(nextFollowUpDate: string | null): {
   kind: "follow_up_scheduled" | "follow_up_cleared";
   body: string;

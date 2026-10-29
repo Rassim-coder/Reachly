@@ -9,7 +9,10 @@ import {
   PageHeader,
 } from "@/components/ui/page-shell";
 import { LeadActions } from "@/features/leads/components/lead-actions";
-import { StatusBadge } from "@/features/leads/components/lead-list";
+import {
+  FollowUpLabel,
+  StatusBadge,
+} from "@/features/leads/components/lead-list";
 import {
   displayWebsite,
   formatLeadDate,
@@ -149,7 +152,11 @@ export default async function LeadDetailPage({
             <div>
               <dt className="text-faint">Next follow-up</dt>
               <dd className="mt-0.5 text-muted">
-                {formatLeadDate(lead.nextFollowUpDate) ?? "Not scheduled"}
+                <FollowUpLabel
+                  date={lead.nextFollowUpDate}
+                  completedAt={lead.followUpCompletedAt}
+                  withDate
+                />
               </dd>
             </div>
           </dl>

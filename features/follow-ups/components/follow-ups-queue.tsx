@@ -401,7 +401,10 @@ export function FollowUpsQueue({
   }
 
   function handleComplete(lead: FollowUpItem): void {
-    runAction(lead.id, () => completeLeadFollowUp(lead.id));
+    const expectedDate = lead.nextFollowUpDate;
+    if (!expectedDate) return;
+
+    runAction(lead.id, () => completeLeadFollowUp(lead.id, expectedDate));
   }
 
   const sections: Array<{

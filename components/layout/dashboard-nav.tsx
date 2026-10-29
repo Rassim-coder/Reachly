@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -16,7 +17,6 @@ import {
   ListIcon,
   MenuIcon,
   SearchIcon,
-  SendIcon,
   SettingsIcon,
   XIcon,
 } from "@/components/ui/icons";
@@ -187,8 +187,16 @@ export function DashboardNav({
         )}
       >
         <div className="flex h-[50px] items-center gap-2.5 border-b border-line px-4">
-          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_40%,#0a8fe0_100%)] text-white">
-            <SendIcon size={14} />
+          <span className="grid size-7 shrink-0 place-items-center">
+            <Image
+              src="/reachly-logo-mark.png"
+              alt=""
+              aria-hidden="true"
+              width={477}
+              height={571}
+              className="h-7 w-auto"
+              priority
+            />
           </span>
           <div className="rl-rail-label min-w-0">
             <b className="block truncate text-[13px] leading-[1.1] text-primary">

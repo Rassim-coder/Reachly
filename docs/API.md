@@ -67,6 +67,7 @@ The example business is illustrative, not a real search result. Rows without a b
 - Continuation requests reuse the resolved bounding box and matched categories stored in the cursor. This skips the divisions lookup and the distinct-category scan; the remote places scan inside the bbox is still required for every batch.
 - Success returns real Overture release `2026-10-21.0` records (`taxonomy.primary`); a JSON header `X-Overture-Release` echoes the pinned release.
 - Validation failures return `400 VALIDATION_ERROR`; an unknown city returns `404 NOT_FOUND`; timeouts return `504 SEARCH_FAILED`; other query failures return `500 SEARCH_FAILED`.
+- DuckDB, S3, and provider diagnostics are logged server-side only. Search failures return a user-safe message; continuation failures preserve the current result page so the user can retry Load more.
 - `/api/*` is session-protected by `proxy.ts`, so an unauthenticated request receives a `307` redirect to `/login` rather than a JSON body.
 - Live search is slow (~4–66 s per batch observed); the API applies a 120-second application-level timeout per request, which is not a hosting-platform guarantee.
 
@@ -178,7 +179,62 @@ reuses `updateLeadFollowUp` and `completeLeadFollowUp`. The current UI does not
 need a separate `/api/follow-ups` route. The data model decision about one date
 versus multiple tasks per lead remains open.
 
-## 6. Error Format
+Completion clears only the expected `next_follow_up_date` for the authenticated
+owner, then appends a `follow_up_completed` activity. Repeated completion requests
+do not append another event, and stale requests cannot clear a rescheduled date.
+The date clear is revalidated across Follow-ups, My Leads, and Overview. Activity
+history is written after the date mutation; if that insert fails, completion
+remains persisted and the user receives a history warning, so historical
+completion analytics can undercount that failure.
+
+My Leads displays a separate Completed follow-up indicator from the latest
+follow-up activity when no date is pending. This is not a `lead_status` value.
+
+The dashboard bell derives one grouped notification from the authenticated user's
+leads with `next_follow_up_date =` the current UTC date. It does not create
+notification records; the count is refreshed after follow-up mutations and at
+the next UTC midnight.
+
+## 6. Settings
+
+- The display name is read from and saved to the authenticated user's
+  `profiles.full_name`; account email is read from Supabase Auth and is
+  read-only in Settings.
+- Light/Dark/System uses the existing `reachly-theme` local-storage preference
+  and the root pre-hydration theme script.
+- Follow-up notification preferences are user-facing settings stored in the
+  authenticated user's Supabase Auth metadata because `profiles` has no
+  notification-preference columns. They only control notification visibility,
+  never follow-up records or authorization. Defaults preserve the existing
+  due-today alert; overdue and upcoming alerts start disabled.
+
+## 7. Analytics
+
+The Analytics page fetches and aggregates authenticated, owner-scoped lead and
+activity rows on the server. It returns only chart aggregates to Recharts client
+components.
+
+- Current KPIs and the status distribution describe all currently saved leads.
+- The global Analytics selector supports the last 7, 30, or 90 UTC calendar
+  days (30 by default) and drives both historical charts. Saved counts use
+  `leads.created_at`; contacted counts distinct leads per interval with a
+  recorded transition to Contacted.
+- Outreach Activity counts recorded events (not unique leads) within that same
+  selected range: daily buckets for 7/30 days and Monday-based weekly buckets
+  for 90 days. Events are status changes to Contacted or Interested and
+  `follow_up_completed` activities.
+- KPI cards, status distribution, and Leads by Niche remain lifetime/current-
+  state metrics and are not filtered by the selected period.
+- Leads by Niche counts current saved leads grouped by the single
+  `businesses.category` value, including an explicit No category group.
+
+There is no dedicated contact-event enum and no tracking of external message
+delivery. Contacted/Interested history comes from `status_change` activity rows;
+because activity inserts are best-effort after the lead update, these charts may
+undercount if an activity insert fails. Replies and deals won remain unsupported
+by the current schema and are not shown.
+
+## 8. Error Format
 
 Use a consistent error response, for example:
 
@@ -202,7 +258,7 @@ Possible error codes:
 
 Do not expose secrets, raw stack traces, or sensitive database details to clients.
 
-## 7. Authentication and Authorization
+## 9. Authentication and Authorization
 
 - Protected lead operations require authentication.
 - Derive the acting user from the verified server-side session.
@@ -210,7 +266,7 @@ Do not expose secrets, raw stack traces, or sensitive database details to client
 - Apply RLS as a second layer of protection.
 - Validate ownership on reads, updates, and deletes.
 
-## 8. TypeScript Types
+## 10. TypeScript Types
 
 Define shared types for:
 - Search request.
@@ -223,7 +279,7 @@ Define shared types for:
 
 Keep frontend expectations aligned with the server implementation.
 
-## 9. API Completion Criteria
+## 11. API Completion Criteria
 
 An endpoint is complete only when its behavior, validation, authorization, error handling, and tests have been verified. Document any remaining limitations.
 

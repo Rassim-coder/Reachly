@@ -1,17 +1,19 @@
-import { DashboardPage, PendingFeature } from "@/components/ui/page-shell";
+import { Suspense } from "react";
+
+import { DashboardPage, PageHeader } from "@/components/ui/page-shell";
+import { ListsContent } from "@/features/lists/components/lists-content";
+import { ListsSkeleton } from "@/features/lists/components/lists-skeleton";
 
 export default function ListsPage() {
   return (
     <DashboardPage>
-      <PendingFeature
+      <PageHeader
         title="Lists"
         description="Organize saved leads into groups."
-        planned={[
-          "Create and open a list.",
-          "Add and remove the user's own leads.",
-          "Counts and contacted progress calculated from real data.",
-        ]}
       />
+      <Suspense fallback={<ListsSkeleton label="Loading your lists…" />}>
+        <ListsContent />
+      </Suspense>
     </DashboardPage>
   );
 }

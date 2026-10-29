@@ -6,6 +6,7 @@ import {
   buildBulkFollowUpActivity,
   buildBulkStatusActivityBody,
   bulkDeleteConfirmation,
+  classifyFollowUpCompletionMiss,
   MAX_BULK_LEADS,
   planBulkFollowUpChange,
   planBulkStatusChange,
@@ -294,6 +295,29 @@ describe("bulk follow-up planning", () => {
         body: "Status changed to New.",
       },
     ]);
+  });
+});
+
+describe("follow-up completion retry classification", () => {
+  test("treats a missing scheduled date as an idempotent completed state", () => {
+    assert.equal(
+      classifyFollowUpCompletionMiss(null, "2026-10-30"),
+      "already_cleared",
+    );
+  });
+
+  test("detects when the follow-up was rescheduled after the request began", () => {
+    assert.equal(
+      classifyFollowUpCompletionMiss("2026-11-05", "2026-10-30"),
+      "rescheduled",
+    );
+  });
+
+  test("distinguishes a still-scheduled date from a completed request", () => {
+    assert.equal(
+      classifyFollowUpCompletionMiss("2026-10-30", "2026-10-30"),
+      "still_scheduled",
+    );
   });
 });
 
