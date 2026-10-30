@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { Database as DuckDbDatabase, Connection } from "duckdb-async";
@@ -196,6 +197,12 @@ function countryToIso(country: string): string | null {
 }
 
 async function installExtensions(conn: Connection): Promise<void> {
+  // Vercel functions may have an empty HOME. DuckDB's INSTALL command needs a
+  // writable home for its extension cache; its in-memory database remains
+  // unchanged, and /tmp is writable in the Vercel Node runtime.
+  const homeDirectory = (process.env.HOME?.trim() || tmpdir()).replace(/\\/g, "/");
+  await conn.run(`SET home_directory='${sanitizeForSql(homeDirectory)}'`);
+
   // httpfs  -> read Parquet straight from S3 (Overture's bucket is public, no auth)
   // spatial -> geometry type support (required to read GeoParquet)
   await conn.run("INSTALL httpfs; LOAD httpfs;");
