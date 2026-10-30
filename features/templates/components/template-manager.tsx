@@ -27,7 +27,7 @@ const primaryButtonClasses =
   "inline-flex h-[34px] items-center justify-center rounded-full bg-primary px-4 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60";
 
 const aiButtonClasses =
-  "group inline-flex h-[38px] items-center justify-center gap-2 rounded-full border border-violet-300/40 bg-gradient-to-r from-[#7041f2] via-[#8249f5] to-[#a044e8] px-4 text-[12px] font-semibold text-white shadow-[0_0_18px_rgba(124,58,237,0.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(168,85,247,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+  "group inline-flex h-[34px] items-center justify-center gap-2 rounded-full border border-violet-300/40 bg-gradient-to-r from-[#7041f2] via-[#8249f5] to-[#a044e8] px-4 text-[12px] font-semibold text-white shadow-[0_0_18px_rgba(124,58,237,0.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(168,85,247,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 const secondaryButtonClasses =
   "inline-flex h-[30px] items-center justify-center rounded-full border border-line bg-surface px-3 text-[12px] font-medium text-muted transition-colors hover:bg-field hover:text-ink disabled:opacity-50";
