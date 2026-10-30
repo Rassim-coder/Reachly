@@ -19,11 +19,11 @@
   --rl-pri: #6d3ff0;
   --rl-tint: #eeeafe;
   --rl-blue: #0a8fe0;
-  --rl-orange: #f97316;
+  --rl-orange: #fa7521;
   --rl-ok: #16a34a;
   --rl-okbg: #e8f7ee;
   --rl-input: #f3f4f8;
-  --rl-grad: linear-gradient(135deg, #7c4dff 0%, #6d3ff0 40%, #0a8fe0 100%);
+  --rl-grad: linear-gradient(135deg, #7c4dff 0%, #6d3ff0 40%, #fa7521 100%);
   --rl-sh: 0 1px 3px rgba(16, 24, 40, 0.06);
 }
 

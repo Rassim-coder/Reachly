@@ -40,7 +40,7 @@ async function OverviewContent() {
 
   return (
     <>
-      <section className="relative overflow-hidden rounded-[20px] bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_40%,#0a8fe0_100%)] p-7 text-white">
+      <section className="relative overflow-hidden rounded-[20px] bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_40%,#fa7521_100%)] p-7 text-white">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(255,255,255,.18)_1px,transparent_1px)] bg-[length:18px_18px] opacity-50"
@@ -65,7 +65,7 @@ function OverviewSkeleton() {
   return (
     <div className="space-y-[18px]" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading your Overview…</span>
-      <section className="rounded-[20px] bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_40%,#0a8fe0_100%)] p-7 text-white">
+      <section className="rounded-[20px] bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_40%,#fa7521_100%)] p-7 text-white">
         <div className="mb-2 h-7 w-56 animate-pulse rounded bg-white/25" />
         <div className="mb-5 h-4 w-64 animate-pulse rounded bg-white/20" />
         <KpiSkeletonGrid />

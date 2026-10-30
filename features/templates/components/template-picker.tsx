@@ -103,8 +103,10 @@ export function TemplatePicker({ leadId }: { leadId: string }) {
   const values = {
     business_name: context.businessName,
     city: context.city,
-    contact_name: context.contactName,
-    your_name: context.yourName,
+    category: context.category,
+    owner_name: context.contactName,
+    my_name: context.yourName,
+    my_company: context.myCompany,
   };
 
   function handleSelect(nextId: string) {

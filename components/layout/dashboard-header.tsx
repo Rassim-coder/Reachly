@@ -95,7 +95,7 @@ export function DashboardHeader({
       <Link
         href="/my-leads"
         aria-label="Open the My Leads search"
-        className="hidden h-[30px] w-[230px] items-center gap-2 rounded-full border border-line bg-field px-3 text-faint hover:border-primary/40 hover:text-muted md:flex"
+        className="hidden h-[30px] w-[230px] items-center gap-2 rounded-full border border-line bg-field px-3 text-faint hover:border-accent-orange/50 hover:text-muted md:flex"
       >
         <SearchIcon size={14} />
         <span className="flex-1 truncate text-[13px]">Search saved leads…</span>
@@ -105,7 +105,7 @@ export function DashboardHeader({
 
       <Link
         href="/find-businesses"
-        className="flex h-[30px] items-center gap-1.5 rounded-full bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-3.5 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] max-sm:px-2.5"
+        className="flex h-[30px] items-center gap-1.5 rounded-full bg-[linear-gradient(90deg,#6d3ff0,#fa7521)] px-3.5 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(250,117,33,.3)] max-sm:px-2.5"
       >
         <PlusIcon size={14} />
         <span className="max-sm:hidden">Add lead</span>
@@ -142,7 +142,7 @@ export function DashboardHeader({
           {!followUpNotifications.error && notificationCount > 0 ? (
             <span
               aria-hidden="true"
-              className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white"
+              className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-orange px-1 text-[9px] font-semibold text-white"
             >
               {notificationCount > 99 ? "99+" : notificationCount}
             </span>
@@ -212,7 +212,7 @@ export function DashboardHeader({
           <span
             aria-hidden="true"
             className={cn(
-              "grid size-[30px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#3b82f6,#6d3ff0)] text-[10px] font-semibold text-white",
+              "grid size-[30px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#6d3ff0,#fa7521)] text-[10px] font-semibold text-white",
             )}
           >
             {userName ? userName.slice(0, 2).toUpperCase() : "R"}

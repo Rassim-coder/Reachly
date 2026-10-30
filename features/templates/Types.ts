@@ -31,10 +31,13 @@ export type TemplateInput = {
  */
 export type TemplateLeadContext = {
   businessName: string;
+  category: string | null;
   city: string | null;
   phone: string | null;
   email: string | null;
   /** Reachly does not store a contact person yet, so this is always null. */
   contactName: string | null;
   yourName: string | null;
+  /** Reachly does not yet collect a user's company name. */
+  myCompany: string | null;
 };

@@ -29,7 +29,15 @@ Supabase Dashboard → Project Settings → API:
 
 AI Assistant requires a GroqCloud API key in `GROQ_API_KEY`. Keep it
 server-only; do not use a `NEXT_PUBLIC_` prefix. `GROQ_MODEL` optionally
-overrides the model ID (default: `openai/gpt-oss-20b`). At the beginning of
+overrides the AI assistant model ID (default: `openai/gpt-oss-20b`). AI
+template generation uses the same server-side Groq key, with its own
+`TEMPLATE_AI_MODEL` setting (default: `qwen/qwen3.8-27b`, which supports the
+strict JSON response mode used for drafts). `TEMPLATE_AI_DAILY_LIMIT` sets
+the per-user generation limit per UTC day (1–100, default 20). Quota counts
+are kept in server memory; this requires no database table or migration. Counts
+reset when the server restarts and are not shared across multiple server
+instances.
+At the beginning of
 each discussion, the user confirms once that the current chat, target
 niches/cities, default location, and up to 100 recent leads (business name,
 category, city, status, and dates) may be sent to Groq. That consent is
@@ -155,8 +163,11 @@ Leads with filters, pagination, a detail drawer, status updates, notes, activity
 history, follow-up dates, page-scoped row selection, bulk status/follow-up
 changes, and authorized bulk deletion.
 
-Not implemented: a dedicated Follow-ups queue, lists, templates, settings
-persistence, analytics, and AI. The remaining placeholder pages state this
-explicitly and render no mock data.
+Implemented: user-owned email and WhatsApp templates with editing, deletion,
+placeholders, and AI-generated drafts. Their live Supabase persistence still
+requires verification in each hosted environment.
+
+Not implemented: lists, settings persistence, and full Analytics. The
+remaining placeholder pages state this explicitly and render no mock data.
 
 See `PROJECT_BRIEF.md` §11 and `docs/roadmap.md` for the authoritative status.
