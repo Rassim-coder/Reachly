@@ -111,7 +111,10 @@ safe Supabase test-environment strategy.
 - `proxy.ts` (Next.js 16's replacement for `middleware.ts`) refreshes the
   Supabase session cookie on every request via `lib/supabase/session.ts`.
 - `app/(dashboard)/layout.tsx` enforces authentication and redirects to
-  `/login`; `app/(auth)/layout.tsx` bounces signed-in users back to `/`.
+  `/login`; `app/(auth)/layout.tsx` bounces signed-in users to `/overview`.
+- `/` (`app/(marketing)/page.tsx`) is the public marketing homepage. Signed-in
+  visitors are sent to `/overview`. Get started opens `/login?mode=signup`;
+  Sign in opens `/login`.
 - `lib/supabase/{client,server}.ts` provide the browser and server clients.
   Server code always creates a new client per request.
 - Login and sign-up are Server Actions in `lib/auth/actions.ts`.

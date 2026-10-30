@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 
 import { updatePassword, type AuthActionState } from "@/lib/auth/actions";
+import { DASHBOARD_HOME } from "@/lib/constants";
 
 import { AUTH_STYLES } from "@/app/(auth)/auth-styles";
 import {
@@ -158,7 +159,7 @@ export function ResetPasswordScreen({
                 <span>{state.message}</span>
               </div>
 
-              <Link className="rl-submit" href="/">
+              <Link className="rl-submit" href={DASHBOARD_HOME}>
                 Continue to dashboard
               </Link>
             </div>

@@ -22,8 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LeadPilot",
-  description: "Project setup in progress.",
+  title: "Reachly",
+  description:
+    "Search local businesses, save the ones worth contacting, and keep every follow-up in one place.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

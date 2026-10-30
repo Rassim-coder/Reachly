@@ -6,7 +6,7 @@ import { supabasePublishableKey, supabaseUrl } from "@/lib/env";
 import type { Database } from "./database.types";
 
 /** Routes that are reachable without a session. */
-const PUBLIC_PATH_PREFIXES = ["/login", "/auth"];
+const PUBLIC_PATH_PREFIXES = ["/", "/login", "/auth"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATH_PREFIXES.some(

@@ -55,14 +55,16 @@ const FOLLOW_UPS = [
 export function LoginScreen({
   next = "",
   initialError = null,
+  initialMode = "sign-in",
   className,
 }: {
   next?: string;
   initialError?: string | null;
+  initialMode?: Mode;
   className?: string;
 }) {
   const [theme, setTheme] = useState<Theme>("dark");
-  const [mode, setMode] = useState<Mode>("sign-in");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

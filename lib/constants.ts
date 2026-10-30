@@ -2,6 +2,9 @@ export const APP_NAME = "Reachly";
 export const APP_DESCRIPTION =
   "B2B business prospecting and lightweight CRM.";
 
+/** Signed-in app home. The marketing site lives at `/`. */
+export const DASHBOARD_HOME = "/overview";
+
 /**
  * Icon key for a nav item. Resolved to a component in
  * `components/ui/icons.tsx` by `DashboardNav`, so the data stays free of JSX.
@@ -39,7 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Prospecting",
     items: [
-      { href: "/", label: "Overview", icon: "layout-dashboard" },
+      { href: DASHBOARD_HOME, label: "Overview", icon: "layout-dashboard" },
       { href: "/find-businesses", label: "Find Businesses", icon: "search" },
       { href: "/my-leads", label: "My Leads", icon: "bookmark" },
       { href: "/follow-ups", label: "Follow-ups", icon: "bell-ring" },

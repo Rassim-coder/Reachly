@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth/session";
+import { DASHBOARD_HOME } from "@/lib/constants";
 
 /**
  * These routes must read cookies before they can render, so they are allowed
@@ -20,7 +21,7 @@ export default async function AuthLayout({
   const user = await getCurrentUser();
 
   if (user) {
-    redirect("/");
+    redirect(DASHBOARD_HOME);
   }
 
   // The login screen owns its own full-viewport two-column layout, so this
