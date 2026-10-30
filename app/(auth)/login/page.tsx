@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; mode?: string }>;
 }) {
   return (
     <Suspense
@@ -37,9 +37,9 @@ export default function LoginPage({
 async function ResolvedLoginScreen({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; mode?: string }>;
 }) {
-  const { next, error } = await searchParams;
+  const { next, error, mode } = await searchParams;
 
   // `/auth/callback` sends failed code exchanges here. The code covers both
   // email confirmation and password-recovery links.
@@ -49,6 +49,10 @@ async function ResolvedLoginScreen({
       : null;
 
   return (
-    <LoginScreen next={next ?? ""} initialError={initialError} />
+    <LoginScreen
+      next={next ?? ""}
+      initialError={initialError}
+      initialMode={mode === "signup" || mode === "sign-up" ? "sign-up" : "sign-in"}
+    />
   );
 }

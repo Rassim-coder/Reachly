@@ -32,6 +32,22 @@ function Icon({ size = 18, children, ...props }: IconProps & { children: ReactNo
   );
 }
 
+export function PlayIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </Icon>
+  );
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20 6 9 17l-5-5" />
+    </Icon>
+  );
+}
+
 export function SendIcon(props: IconProps) {
   return (
     <Icon {...props}>

@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import type { FormEvent } from "react";
 
 import { updatePassword, type AuthActionState } from "@/lib/auth/actions";
+import { DASHBOARD_HOME } from "@/lib/constants";
 
 import { AUTH_STYLES } from "@/app/(auth)/auth-styles";
 import {
@@ -16,7 +18,6 @@ import {
   LoaderIcon,
   LockIcon,
   MoonIcon,
-  SendIcon,
   SunIcon,
 } from "@/app/(auth)/auth-ui";
 
@@ -43,7 +44,7 @@ export function ResetPasswordScreen({
   email: string | null;
   className?: string;
 }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -100,28 +101,39 @@ export function ResetPasswordScreen({
     >
       <style>{AUTH_STYLES}</style>
 
-      <section className="rl-side">
-        <div className="rl-topbar">
-          <div className="rl-page-brand">
-            <span className="rl-mobile-logo-icon">
-              <SendIcon size={14} />
-            </span>
-            <span>Reachly</span>
+      <div className="rl-container">
+        {/* ---------- Header ---------- */}
+        <header className="rl-header">
+          <Link href="/" className="rl-header-logo">
+            <Image
+              src="/reachly-logo.png"
+              alt="Reachly"
+              width={140}
+              height={32}
+              className="h-8 w-auto"
+              priority
+            />
+          </Link>
+
+          <div className="rl-header-links">
+            <Link href="/" className="rl-header-link">
+              Back to home
+            </Link>
+            <button
+              type="button"
+              className="rl-toggle"
+              aria-label={
+                theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+              }
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <MoonIcon size={16} /> : <SunIcon size={16} />}
+            </button>
           </div>
+        </header>
 
-          <button
-            type="button"
-            className="rl-toggle"
-            aria-label={
-              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-            }
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          >
-            {theme === "dark" ? <MoonIcon size={15} /> : <SunIcon size={15} />}
-          </button>
-        </div>
-
-        <main className="rl-center">
+        {/* ---------- Main ---------- */}
+        <main className="rl-main">
           {!email ? (
             <div className="rl-card">
               <div>
@@ -142,7 +154,7 @@ export function ResetPasswordScreen({
             </div>
           ) : updated ? (
             <div className="rl-card">
-              <div>
+              <div className="rl-card-header">
                 <h2 className="rl-title">Password updated</h2>
                 <p className="rl-subtitle">
                   {email} can now sign in with the new password.
@@ -154,11 +166,11 @@ export function ResetPasswordScreen({
                 role="status"
                 aria-live="polite"
               >
-                <CheckIcon size={14} />
+                <CheckIcon size={16} />
                 <span>{state.message}</span>
               </div>
 
-              <Link className="rl-submit" href="/">
+              <Link className="rl-submit" href={DASHBOARD_HOME}>
                 Continue to dashboard
               </Link>
             </div>
@@ -169,7 +181,7 @@ export function ResetPasswordScreen({
               onSubmit={handleSubmit}
               noValidate
             >
-              <div>
+              <div className="rl-card-header">
                 <h2 className="rl-title">Set a new password</h2>
                 <p className="rl-subtitle">
                   Choose a new password for {email}.
@@ -182,7 +194,7 @@ export function ResetPasswordScreen({
                   role="alert"
                   aria-live="assertive"
                 >
-                  <InfoIcon size={14} />
+                  <InfoIcon size={16} />
                   <span>{state.error}</span>
                 </div>
               ) : null}
@@ -194,7 +206,7 @@ export function ResetPasswordScreen({
                   </label>
                   <div className="rl-field">
                     <span className="rl-input-icon">
-                      <LockIcon size={16} />
+                      <LockIcon size={18} />
                     </span>
                     <input
                       id="rl-new-password"
@@ -218,9 +230,9 @@ export function ResetPasswordScreen({
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
-                        <EyeOffIcon size={16} />
+                        <EyeOffIcon size={18} />
                       ) : (
-                        <EyeIcon size={16} />
+                        <EyeIcon size={18} />
                       )}
                     </button>
                   </div>
@@ -235,7 +247,7 @@ export function ResetPasswordScreen({
                   </label>
                   <div className="rl-field">
                     <span className="rl-input-icon">
-                      <LockIcon size={16} />
+                      <LockIcon size={18} />
                     </span>
                     <input
                       id="rl-confirm-password"
@@ -263,9 +275,9 @@ export function ResetPasswordScreen({
                       }
                     >
                       {showConfirmPassword ? (
-                        <EyeOffIcon size={16} />
+                        <EyeOffIcon size={18} />
                       ) : (
-                        <EyeIcon size={16} />
+                        <EyeIcon size={18} />
                       )}
                     </button>
                   </div>
@@ -279,14 +291,14 @@ export function ResetPasswordScreen({
                 {pending ? (
                   <>
                     <span className="rl-spinner">
-                      <LoaderIcon size={15} />
+                      <LoaderIcon size={16} />
                     </span>
                     <span>Updating…</span>
                   </>
                 ) : (
                   <>
                     <span>Update password</span>
-                    <ArrowRightIcon size={15} />
+                    <ArrowRightIcon size={16} />
                   </>
                 )}
               </button>
@@ -300,7 +312,20 @@ export function ResetPasswordScreen({
             </form>
           )}
         </main>
-      </section>
+
+        {/* ---------- Footer ---------- */}
+        <footer className="rl-footer">
+          <div className="rl-footer-links">
+            <Link href="/privacy" className="rl-footer-link">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="rl-footer-link">
+              Terms of Service
+            </Link>
+          </div>
+          <p className="rl-footer-copyright">© 2026 Reachly. All rights reserved.</p>
+        </footer>
+      </div>
     </div>
   );
 }

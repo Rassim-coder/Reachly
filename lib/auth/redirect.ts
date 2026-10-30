@@ -1,3 +1,5 @@
+import { DASHBOARD_HOME } from "@/lib/constants";
+
 /**
  * Only same-origin, in-app paths may be used as a post-login destination, so a
  * crafted `?next=` cannot turn the login form or auth callback into an open
@@ -12,8 +14,13 @@ export function safeNextPath(
 ): string {
   const raw = typeof value === "string" ? value : "";
 
-  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/login")) {
-    return "/";
+  if (
+    !raw.startsWith("/") ||
+    raw.startsWith("//") ||
+    raw.startsWith("/login") ||
+    raw === "/"
+  ) {
+    return DASHBOARD_HOME;
   }
 
   return raw;

@@ -36,10 +36,6 @@ const NAV_ICONS: Record<NavIcon, typeof SearchIcon> = {
 };
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === "/") {
-    return pathname === "/";
-  }
-
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

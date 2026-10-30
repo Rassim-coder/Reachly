@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SendIcon } from "@/components/ui/icons";
+import { DASHBOARD_HOME } from "@/lib/constants";
 
 export default function NotFound() {
   return (
@@ -11,8 +12,8 @@ export default function NotFound() {
         The page you are looking for does not exist or has moved.
       </p>
       <Link
-        href="/"
-        className="mt-2 flex h-8 items-center gap-1.5 rounded-full bg-[linear-gradient(90deg,#6d3ff0,#fa7521)] px-3.5 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(250,117,33,.3)]"
+        href={DASHBOARD_HOME}
+        className="mt-2 flex h-8 items-center gap-1.5 rounded-full bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-3.5 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)]"
       >
         <SendIcon size={13} />
         Back to dashboard
