@@ -319,7 +319,7 @@ export function AiSalesAssistant() {
         >
           {messages.length === 0 && !pending ? (
             <div className="mx-auto max-w-[900px] py-1 sm:py-3">
-              <div className="relative overflow-hidden rounded-[26px] bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_45%,#0a8fe0_100%)] p-6 text-white shadow-card sm:p-8">
+              <div className="relative overflow-hidden rounded-[26px] bg-[linear-gradient(135deg,#7c4dff_0%,#6d3ff0_45%,#fa7521_100%)] p-6 text-white shadow-card sm:p-8">
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute -top-20 -right-10 size-64 rounded-full border border-white/15"
@@ -571,7 +571,7 @@ function ChatBubble({ message }: { message: AiChatMessage }) {
           You
         </span>
       ) : (
-        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7c4dff,#0a8fe0)] text-white">
+        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7c4dff,#fa7521)] text-white">
           <BotIcon size={16} />
         </span>
       )}
@@ -593,7 +593,7 @@ function ChatBubble({ message }: { message: AiChatMessage }) {
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3" role="status" aria-label="Assistant is typing">
-      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7c4dff,#0a8fe0)] text-white">
+      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7c4dff,#fa7521)] text-white">
         <BotIcon size={16} />
       </span>
       <div className="flex h-11 items-center gap-1.5 rounded-2xl rounded-tl-md border border-line bg-surface px-4 shadow-card">

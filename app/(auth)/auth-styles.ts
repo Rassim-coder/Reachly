@@ -12,7 +12,7 @@ export const AUTH_STYLES = `
 }
 
 .rl-auth {
-  --auth-gradient: linear-gradient(135deg, #7C4DFF 0%, #6D3FF0 40%, #0A8FE0 100%);
+  --auth-gradient: linear-gradient(135deg, #7C4DFF 0%, #6D3FF0 40%, #FA7521 100%);
   min-height: 100vh;
   min-height: 100dvh;
   font-size: 13px;
@@ -545,13 +545,13 @@ export const AUTH_STYLES = `
   height: 40px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6D3FF0 0%, #0A8FE0 100%);
+  background: linear-gradient(90deg, #6D3FF0 0%, #FA7521 100%);
   color: #fff;
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(109, 63, 240, .3);
+  box-shadow: 0 2px 6px rgba(250, 117, 33, .3);
   transition: filter 150ms ease;
 }
 

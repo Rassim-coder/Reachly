@@ -71,13 +71,13 @@ function NavLink({
         {active ? (
           <span
             aria-hidden="true"
-            className="absolute top-1.5 bottom-1.5 left-[-8px] w-[3px] rounded-[2px] bg-primary"
+            className="absolute top-1.5 bottom-1.5 left-[-8px] w-[3px] rounded-[2px] bg-accent-orange"
           />
         ) : null}
         <Icon className="shrink-0" />
         <span className="rl-rail-label truncate">{item.label}</span>
         {item.badge ? (
-          <span className="rl-rail-label ml-auto rounded-full bg-accent-blue px-[7px] py-[1px] text-[10px] font-semibold text-white">
+          <span className="rl-rail-label ml-auto rounded-full bg-accent-orange px-[7px] py-[1px] text-[10px] font-semibold text-white">
             {item.badge}
           </span>
         ) : null}
@@ -202,7 +202,7 @@ export function DashboardNav({
             <b className="block truncate text-[13px] leading-[1.1] text-primary">
               {APP_NAME}
             </b>
-            <small className="text-[9px] tracking-[.1em] text-faint">PROSPECTING</small>
+            <small className="text-[9px] tracking-[.1em] text-accent-orange">PROSPECTING</small>
           </div>
           <button
             type="button"
@@ -241,7 +241,7 @@ export function DashboardNav({
         </nav>
 
         <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#3b82f6,#6d3ff0)] text-[11px] font-semibold text-white">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#6d3ff0,#fa7521)] text-[11px] font-semibold text-white">
             {userName ? userName.slice(0, 2).toUpperCase() : "R"}
           </span>
           <div className="rl-rail-label min-w-0 flex-1 leading-tight">

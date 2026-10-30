@@ -555,7 +555,7 @@ export function BusinessSearch() {
             <button
               type="submit"
               disabled={searching || loadingMore || bulkPending}
-              className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-4 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] disabled:opacity-60"
+              className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#fa7521)] px-4 text-[13px] font-medium text-white shadow-[0_2px_6px_rgba(250,117,33,.3)] disabled:opacity-60"
             >
               <SearchIcon size={15} />
               {searching ? "Searching…" : "Search"}
@@ -736,7 +736,7 @@ export function BusinessSearch() {
                 type="button"
                 onClick={handleBulkSave}
                 disabled={resultActionsDisabled || selectedIds.size === 0}
-                className="flex h-[32px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#0a8fe0)] px-3 text-[12px] font-medium text-white shadow-[0_2px_6px_rgba(109,63,240,.3)] disabled:opacity-60"
+                className="flex h-[32px] items-center justify-center gap-1.5 rounded-xl bg-[linear-gradient(90deg,#6d3ff0,#fa7521)] px-3 text-[12px] font-medium text-white shadow-[0_2px_6px_rgba(250,117,33,.3)] disabled:opacity-60"
               >
                 <BookmarkIcon size={14} />
                 {bulkPending ? "Adding…" : "Add to My Leads"}
