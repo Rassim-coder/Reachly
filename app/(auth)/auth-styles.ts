@@ -261,6 +261,11 @@ export const AUTH_STYLES = `
   padding-right: 44px;
 }
 
+.rl-input.rl-input-password::-ms-reveal,
+.rl-input.rl-input-password::-ms-clear {
+  display: none;
+}
+
 .rl-input-icon {
   position: absolute;
   left: 12px;
