@@ -1,6 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition, type FormEvent } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
 
 import { Card, CardHeader } from "@/components/ui/page-shell";
 
@@ -22,6 +28,7 @@ import {
   MAX_TEMPLATE_SUBJECT_LENGTH,
 } from "../validation";
 import { PlaceholderPreview } from "./placeholder-preview";
+import { TemplateAiPanel } from "./template-ai-panel";
 import { TemplateFeedback } from "./template-feedback";
 
 const fieldClasses =
@@ -51,11 +58,13 @@ function insertAt(
 
 export function TemplateEditor({
   template,
+  initialAiOpen = false,
   onCancel,
   onSaved,
 }: {
   /** Null creates a new template. */
   template: TemplateItem | null;
+  initialAiOpen?: boolean;
   onCancel: () => void;
   onSaved: (result: TemplateMutationResult) => void;
 }) {
@@ -65,6 +74,7 @@ export function TemplateEditor({
   );
   const [subject, setSubject] = useState(template?.subject ?? "");
   const [body, setBody] = useState(template?.body ?? "");
+  const [aiOpen, setAiOpen] = useState(initialAiOpen);
   const [activeField, setActiveField] = useState<Field>("body");
   const [result, setResult] = useState<TemplateMutationResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -73,6 +83,16 @@ export function TemplateEditor({
 
   const isEmail = channel === "email";
   const target: Field = isEmail && activeField === "subject" ? "subject" : "body";
+  const closeAiPanel = useCallback(() => setAiOpen(false), []);
+  const useGeneratedDraft = useCallback(
+    (draft: { subject: string | null; body: string }, nextChannel: TemplateChannel) => {
+      setChannel(nextChannel);
+      if (nextChannel === "email") setSubject(draft.subject ?? "");
+      setBody(draft.body);
+      setAiOpen(false);
+    },
+    [],
+  );
 
   function handleInsert(token: string) {
     const element = target === "subject" ? subjectRef.current : bodyRef.current;
@@ -123,7 +143,8 @@ export function TemplateEditor({
     (!isEmail || subject.trim() !== "");
 
   return (
-    <Card className="mb-4">
+    <>
+      <Card className="mb-4">
       <CardHeader
         title={template ? "Edit template" : "New template"}
         description="Templates are drafts you copy and send yourself. Reachly never sends messages."
@@ -187,17 +208,30 @@ export function TemplateEditor({
                 onChange={(event) => setSubject(event.target.value)}
                 onFocus={() => setActiveField("subject")}
                 maxLength={MAX_TEMPLATE_SUBJECT_LENGTH}
-                placeholder="e.g. A quick idea for {{business_name}}"
+                placeholder="e.g. A quick idea for {business_name}"
                 className={fieldClasses}
               />
             </label>
           ) : null}
 
-          <label className="block space-y-1">
-            <span className="block text-[11px] font-medium text-muted">
-              Message
-            </span>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <label
+                htmlFor="template-body"
+                className="block text-[11px] font-medium text-muted"
+              >
+                Message
+              </label>
+              <button
+                type="button"
+                onClick={() => setAiOpen(true)}
+                className={secondaryButtonClasses}
+              >
+                Generate with AI
+              </button>
+            </div>
             <textarea
+              id="template-body"
               ref={bodyRef}
               value={body}
               onChange={(event) => setBody(event.target.value)}
@@ -210,7 +244,7 @@ export function TemplateEditor({
             <span className="block text-right text-[11px] text-faint">
               {body.length}/{MAX_TEMPLATE_BODY_LENGTH}
             </span>
-          </label>
+          </div>
 
           <div className="space-y-1.5">
             <p className="text-[11px] font-medium text-muted">
@@ -284,6 +318,14 @@ export function TemplateEditor({
           <TemplateFeedback result={result} />
         </div>
       </form>
-    </Card>
+      </Card>
+      {aiOpen ? (
+        <TemplateAiPanel
+          channel={channel}
+          onClose={closeAiPanel}
+          onUse={useGeneratedDraft}
+        />
+      ) : null}
+    </>
   );
 }

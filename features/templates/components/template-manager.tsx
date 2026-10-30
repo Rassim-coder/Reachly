@@ -37,7 +37,10 @@ const channelStyles: Record<TemplateChannel, string> = {
   whatsapp: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
 };
 
-type EditorState = { template: TemplateItem | null } | null;
+type EditorState = {
+  template: TemplateItem | null;
+  openAi?: boolean;
+} | null;
 
 export function TemplateManager({ templates }: { templates: TemplateItem[] }) {
   const [editor, setEditor] = useState<EditorState>(null);
@@ -109,6 +112,16 @@ export function TemplateManager({ templates }: { templates: TemplateItem[] }) {
           >
             New template
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNotice(null);
+              setEditor({ template: null, openAi: true });
+            }}
+            className={secondaryButtonClasses}
+          >
+            Generate with AI
+          </button>
         </div>
         <TemplateFeedback result={notice} />
       </Card>
@@ -119,6 +132,7 @@ export function TemplateManager({ templates }: { templates: TemplateItem[] }) {
           key={editor.template?.id ?? "new"}
           template={editor.template}
           onCancel={() => setEditor(null)}
+          initialAiOpen={editor.openAi}
           onSaved={(result) => {
             setNotice(result);
             setEditor(null);
@@ -140,6 +154,18 @@ export function TemplateManager({ templates }: { templates: TemplateItem[] }) {
           <EmptyState
             title="No templates yet"
             description="Create a template, then use it from any saved lead."
+            action={
+              <button
+                type="button"
+                onClick={() => {
+                  setNotice(null);
+                  setEditor({ template: null, openAi: true });
+                }}
+                className={`${primaryButtonClasses} mt-3`}
+              >
+                Generate your first template with AI
+              </button>
+            }
           />
         ) : visible.length === 0 && filtering ? (
           <EmptyState

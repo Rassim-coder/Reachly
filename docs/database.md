@@ -178,8 +178,9 @@ schema.
 - `channel` is `template_channel` (`whatsapp`, `email`, or `call_script`),
   **not null and with no default** — every insert must supply it.
 - `name` is checked to 1–100 trimmed characters; `body` must be non-blank.
-- `body` is the raw template text; `{name}` / `{business}` / `{city}`
-  placeholders are not interpolated yet.
+- `body` stores the template text. Supported single-brace placeholders include
+  `{business_name}`, `{owner_name}`, `{city}`, `{category}`, `{my_name}`, and
+  `{my_company}`; missing values remain visible for review.
 
 ### 2.8 `lead_stats` view
 

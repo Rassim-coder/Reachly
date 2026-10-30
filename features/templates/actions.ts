@@ -31,6 +31,7 @@ const UNIQUE_VIOLATION = "23505";
 
 type BusinessContactRow = {
   name: string | null;
+  category: string | null;
   city: string | null;
   phone: string | null;
   email: string | null;
@@ -242,7 +243,9 @@ export async function getLeadTemplateContext(
   const [leadResult, profileResult] = await Promise.all([
     supabase
       .from("leads")
-      .select("id, businesses!leads_business_id_fkey (name, city, phone, email)")
+      .select(
+        "id, businesses!leads_business_id_fkey (name, category, city, phone, email)",
+      )
       .eq("id", leadId)
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -277,11 +280,13 @@ export async function getLeadTemplateContext(
     ok: true,
     context: {
       businessName,
+      category: business?.category?.trim() || null,
       city: business?.city?.trim() || null,
       phone: business?.phone?.trim() || null,
       email: business?.email?.trim() || null,
       contactName: null,
       yourName: profileResult.data?.full_name?.trim() || null,
+      myCompany: null,
     },
   };
 }
