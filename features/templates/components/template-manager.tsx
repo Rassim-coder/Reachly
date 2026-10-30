@@ -26,6 +26,9 @@ const fieldClasses =
 const primaryButtonClasses =
   "inline-flex h-[34px] items-center justify-center rounded-full bg-primary px-4 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60";
 
+const aiButtonClasses =
+  "group inline-flex h-[38px] items-center justify-center gap-2 rounded-full border border-violet-300/40 bg-gradient-to-r from-[#7041f2] via-[#8249f5] to-[#a044e8] px-4 text-[12px] font-semibold text-white shadow-[0_0_18px_rgba(124,58,237,0.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(168,85,247,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
 const secondaryButtonClasses =
   "inline-flex h-[30px] items-center justify-center rounded-full border border-line bg-surface px-3 text-[12px] font-medium text-muted transition-colors hover:bg-field hover:text-ink disabled:opacity-50";
 
@@ -118,8 +121,17 @@ export function TemplateManager({ templates }: { templates: TemplateItem[] }) {
               setNotice(null);
               setEditor({ template: null, openAi: true });
             }}
-            className={secondaryButtonClasses}
+            className={aiButtonClasses}
           >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4 transition-transform group-hover:rotate-12"
+            >
+              <path d="M10 1.5 11.9 7l5.6 1.9-5.6 1.9L10 16.5l-1.9-5.7L2.5 8.9 8.1 7 10 1.5Z" />
+              <path d="m16 12.5.9 2.6 2.6.9-2.6.9L16 19.5l-.9-2.6-2.6-.9 2.6-.9.9-2.6Z" />
+            </svg>
             Generate with AI
           </button>
         </div>
