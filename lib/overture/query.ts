@@ -455,7 +455,9 @@ async function fetchPlaces(
  * `createRequire("/ROOT/lib/overture/query.ts")` in the server chunk. That
  * path does not exist on disk, so `require("duckdb-async")` fails with
  * "Cannot find module". `process.cwd()` is the real Next.js project root for
- * both `next dev` and `next start`, and node_modules resolves from there.
+ * both `next dev` and `next start`, and node_modules resolves from there. Since
+ * this dynamic require is invisible to static tracing, `next.config.ts` also
+ * explicitly includes the runtime dependency files in the search-route trace.
  */
 const requireNative = createRequire(join(process.cwd(), "package.json"));
 let duckdbModule: typeof import("duckdb-async") | null = null;
