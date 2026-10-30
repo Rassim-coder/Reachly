@@ -125,17 +125,18 @@ html:has(.rl-marketing) {
     transform 180ms ease,
     box-shadow 180ms ease,
     background-color 180ms ease,
-    color 180ms ease;
+    color 180ms ease,
+    filter 180ms ease;
 }
 
 .rl-m-btn-primary {
-  background: #6d3ff0;
+  background: linear-gradient(90deg, #6d3ff0 0%, #fa7521 100%);
   color: #fff;
-  box-shadow: 0 8px 20px rgba(109, 63, 240, 0.22);
+  box-shadow: 0 8px 20px rgba(250, 117, 33, 0.22);
 }
 
 .rl-m-btn-primary:hover {
-  background: #5b32d4;
+  filter: brightness(0.95);
 }
 
 .rl-m-btn-secondary {

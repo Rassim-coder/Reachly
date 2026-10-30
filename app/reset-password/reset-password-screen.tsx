@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 
 import { updatePassword, type AuthActionState } from "@/lib/auth/actions";
-import { DASHBOARD_HOME } from "@/lib/constants";
+import { APP_NAME, DASHBOARD_HOME } from "@/lib/constants";
 
 import { AUTH_STYLES } from "@/app/(auth)/auth-styles";
 import {
@@ -106,13 +106,14 @@ export function ResetPasswordScreen({
         <header className="rl-header">
           <Link href="/" className="rl-header-logo">
             <Image
-              src="/reachly-logo.png"
-              alt="Reachly"
-              width={140}
-              height={32}
+              src="/reachly-logo-mark.png"
+              alt=""
+              width={477}
+              height={571}
               className="h-8 w-auto"
               priority
             />
+            <span>{APP_NAME}</span>
           </Link>
 
           <div className="rl-header-links">
