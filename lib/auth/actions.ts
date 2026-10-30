@@ -64,6 +64,10 @@ export async function signUpWithPassword(
     return { error: "Enter your full name.", message: null };
   }
 
+  if (formData.get("terms") !== "on") {
+    return { error: "Accept the Terms and Privacy Policy to continue.", message: null };
+  }
+
   if (password.length < MIN_PASSWORD_LENGTH) {
     return {
       error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,

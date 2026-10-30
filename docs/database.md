@@ -5,10 +5,10 @@
 **The hosted Supabase project is the source of truth.**
 
 This document describes the schema as it exists in the hosted database. The
-file `supabase/migrations/20261019000000_init_schema.sql` is an inactive
+file `docs/schema-baseline/20261019000000_init_schema.sql` is an archived
 historical baseline; it is not applied to the hosted project and is not part of
-the active development workflow. See the proposal in the completion report for
-how to remove it safely.
+the active development workflow. There are no active migrations in
+`supabase/migrations/`.
 
 `lib/supabase/database.types.ts` is generated directly from the hosted schema
 (`pnpm dlx supabase gen types typescript --project-id <ref> --schema public`).
@@ -49,7 +49,8 @@ use `channel = 'call_script'`.
 ### 2.2 `profiles`
 
 Created for every new `auth.users` row by the `handle_new_user()` trigger
-(security definer, `on conflict (id) do nothing`).
+(security definer). The current function does not use `ON CONFLICT`; duplicate
+trigger execution would fail rather than silently skip a profile insert.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -244,11 +245,13 @@ Notes:
 - RLS is the second line of defense. Server-side operations must still verify
   the session — never trust a client-supplied user id.
 
-### 4.1 Lead-saving function (proposed, not applied)
+### 4.1 Lead-saving function
 
-`docs/sql/save_lead_function.sql` contains a complete standalone script for manual
-execution in the Supabase SQL Editor. It is **not** in `supabase/migrations/` and
-has **not** been applied to the hosted project as part of this change.
+`docs/sql/save_lead_function.sql` contains the standalone SQL definition and
+verification query. It is **not** in `supabase/migrations/`; the current
+connected hosted project was read-only inspected on 2026-10-30 and the function
+is present there. Do not apply the script again or alter the hosted schema without
+review and explicit approval.
 
 The function:
 
@@ -268,10 +271,11 @@ payload came from Overture. A user can still create a previously unseen
 fabricated shared business row. The function prevents overwriting existing
 shared contact details, but source authenticity requires a separate design.
 
-Until the script is applied, save actions return a configuration message and
-will not write. The application type declaration for the RPC was added manually
-to `lib/supabase/database.types.ts`; regenerate types after applying the
-function.
+The application calls this function through the authenticated Supabase client.
+The hosted catalog confirms `anon` cannot execute it and `authenticated` can.
+The application type declaration for the RPC is present in
+`lib/supabase/database.types.ts`; regenerate types after any approved schema
+change.
 
 ## 5. Type generation
 
@@ -285,14 +289,9 @@ pnpm dlx supabase gen types typescript --project-id <ref> --schema public \
 
 ## 6. Verification status
 
-Inspection was read-only, through the Supabase MCP server and PostgREST with the
-publishable key (2026-10-19 to 2026-10-20). The business/lead tables were empty,
-so every structural probe was safe.
-
-**Current implementation note (2026-10-24):** the
-`save_businesses_as_leads` function and its type declaration are proposed/local
-only. The function has not been applied to the hosted database, and no live save
-or RLS-isolation test has been run.
+Earlier schema inspection was read-only through the Supabase MCP server and
+PostgREST (2026-10-19 to 2026-10-20). A further read-only inspection was run on
+2026-10-30; it did not write or delete database records.
 
 **Verified against the hosted project:**
 
@@ -310,13 +309,32 @@ or RLS-isolation test has been run.
   `message_templates` under the legacy `<table>_updated_at` naming; `lists` has
   no `updated_at` column and therefore no trigger.
 - The `handle_new_user()` function and `on_auth_user_created` trigger exist.
+- The `save_businesses_as_leads(jsonb)` function exists, is owned by `postgres`,
+  is `SECURITY DEFINER` with an empty `search_path`, and is executable by
+  `authenticated` but not `anon`.
+- All seven public tables have RLS enabled, and the 23 policies are owner-scoped
+  as listed in §4.
+
+**Security advisor items requiring hosted-project review (not changed by this
+code audit):**
+
+- `public.handle_new_user()` is reported executable by `anon` and
+  `authenticated`. It is a trigger-returning function and its intended caller is
+  the auth trigger, but the grants should be reviewed and narrowed by an
+  authorized database maintainer.
+- Supabase Auth leaked-password protection is disabled.
+- `pg_trgm` is installed in `public`; Supabase recommends moving extensions out
+  of exposed schemas where practical.
+- Performance advisors report four foreign keys without covering indexes and
+  five unused indexes. These are performance recommendations, not evidence of a
+  current data-isolation failure.
 
 **Still to verify in the running app:**
 
 - RLS isolation between two accounts, tested with two real users.
 - That `profiles` is created on signup via the trigger.
-- That the `businesses` SELECT policy allows a user to read only businesses they
-  have saved as leads.
+- Live authenticated save/read/mutation flows and the `businesses` SELECT policy
+  have not been exercised with test users in the running app.
 - That `lib/supabase/database.types.ts` (generated from the hosted schema)
   compiles cleanly with the rest of the codebase.
 

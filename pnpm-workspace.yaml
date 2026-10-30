@@ -1,3 +1,6 @@
+overrides:
+  tar@6.2.1: 7.5.22
+
 allowBuilds:
   # duckdb ships a native binding (duckdb.node) built by its postinstall
   # script; the Overture search pipeline needs it.

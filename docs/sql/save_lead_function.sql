@@ -1,6 +1,8 @@
 ﻿-- Reachly — secure lead saving (manual execution only)
 --
 -- DO NOT run this automatically. Apply it in the Supabase SQL Editor after reviewing it.
+-- The currently connected hosted project contains this function as of 2026-10-30;
+-- do not reapply it as part of normal setup.
 --
 -- Why this exists
 -- ---------------

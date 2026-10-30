@@ -1,8 +1,8 @@
 /**
  * Shapes shared between the search API and its consumers.
  *
- * These mirror `docs/API.md`. They are contracts only — nothing here performs
- * I/O, and no endpoint exists yet.
+ * These mirror `docs/API.md`. They define the shared contract used by the
+ * implemented business-search endpoint and its consumers.
  */
 
 export type ApiErrorCode =

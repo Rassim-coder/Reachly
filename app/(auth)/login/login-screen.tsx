@@ -62,7 +62,6 @@ export function LoginScreen({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [terms, setTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -108,7 +107,9 @@ export function LoginScreen({
     if (!EMAIL_PATTERN.test(email.trim())) {
       nextErrors.email = "Enter a valid email address.";
     }
-    if (password.length < 8) {
+    if (!password) {
+      nextErrors.password = "Enter your password.";
+    } else if (mode === "sign-up" && password.length < 8) {
       nextErrors.password = "Password must be at least 8 characters.";
     }
     if (mode === "sign-up" && !terms) {
@@ -347,16 +348,7 @@ export function LoginScreen({
             </div>
 
             {mode === "sign-in" ? (
-              <div className="rl-row">
-                <label className="rl-check">
-                  <input
-                    type="checkbox"
-                    name="remember"
-                    checked={remember}
-                    onChange={(event) => setRemember(event.target.checked)}
-                  />
-                  <span>Remember me</span>
-                </label>
+              <div className="flex justify-end">
                 <button
                   type="button"
                   className="rl-link"

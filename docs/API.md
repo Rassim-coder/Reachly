@@ -90,7 +90,9 @@ The example business is illustrative, not a real search result. Rows without a b
 - Success returns real Overture release `2026-10-21.0` records (`taxonomy.primary`); a JSON header `X-Overture-Release` echoes the pinned release.
 - Validation failures return `400 VALIDATION_ERROR`; an unknown city returns `404 NOT_FOUND`; timeouts return `504 SEARCH_FAILED`; other query failures return `500 SEARCH_FAILED`.
 - DuckDB, S3, and provider diagnostics are logged server-side only. Search failures return a user-safe message; continuation failures preserve the current result page so the user can retry Load more.
-- `/api/*` is session-protected by `proxy.ts`, so an unauthenticated request receives a `307` redirect to `/login` rather than a JSON body.
+- The Proxy redirects unauthenticated `/api/*` requests to `/login`; the search
+  route also checks the user itself and returns a JSON `401` if reached without
+  an authenticated session.
 - Live search is slow (~4–66 s per batch observed); the API applies a 120-second application-level timeout per request, which is not a hosting-platform guarantee.
 
 ### Requirements

@@ -100,9 +100,9 @@ search snapshot is not a database cache and is not written to `businesses` or
 3. The server validates the submitted business payload again and derives ownership
    from the authenticated session (`auth.uid()` in the database function).
 4. The server calls `public.save_businesses_as_leads` with the authenticated
-   Supabase client. The function is proposed in
-   `docs/sql/save_lead_function.sql` and must be applied manually in the
-   Supabase SQL Editor; it is not part of the active migration history.
+   Supabase client. Its reference definition and verification query are in
+   `docs/sql/save_lead_function.sql`; the function exists in the currently
+   connected hosted project but is not part of active migration history.
 5. The function inserts a shared business only if its `(source, source_id)` does
    not exist. It never updates an existing shared business record, then creates
    the user's lead using the existing `unique (user_id, business_id)` rule.

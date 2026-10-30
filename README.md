@@ -10,14 +10,13 @@ notes and statuses, and schedule follow-ups — all in one place.
 - Next.js 16 (App Router, Turbopack) + React 19 + TypeScript
 - Tailwind CSS 4
 - Supabase (PostgreSQL, Auth, Row Level Security)
-- Overture Maps queried with DuckDB over remote GeoParquet *(not implemented yet)*
+- Overture Maps queried server-side with DuckDB over remote GeoParquet (implemented; production-host compatibility still needs verification)
 
 ## Getting started
 
 ```bash
 pnpm install
-cp .env.example .env   # then fill in your Supabase project values
-pnpm dlx supabase db push   # after linking the project — see docs/development.md
+cp .env.example .env   # fill in Supabase values; add GROQ_API_KEY to enable AI
 pnpm dev
 ```
 
@@ -29,6 +28,8 @@ Open [http://localhost:3000](http://localhost:3000).
 - `pnpm build` – production build (also runs the type check)
 - `pnpm start` – serve the production build
 - `pnpm lint` – run ESLint
+- `pnpm typecheck` – run TypeScript validation
+- `pnpm test` – run offline unit tests
 
 ## Documentation
 
@@ -36,7 +37,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |---|---|
 | `PROJECT_BRIEF.md` | Product overview, feature status, MVP phases |
 | `docs/architecture.md` | Components, search and save-lead flows, folder structure |
-| `docs/api.md` | Proposed API contracts and error format |
+| `docs/API.md` | Implemented and proposed API contracts and error format |
 | `docs/database.md` | Applied schema, constraints, and RLS policies |
 | `docs/overture_search.md` | Overture/DuckDB search design and test matrix |
 | `docs/roadmap.md` | Phased delivery plan |
@@ -45,14 +46,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Status
 
-Implemented: authenticated dashboard, live Overture business search, lead
-persistence and management, a date-based follow-up queue, and a conversational
-AI sales assistant that can analyze recent leads and help plan next steps.
-AI chat requires per-discussion context consent and a server-side Groq API key;
-see `docs/development.md`.
+Implemented in the repository: authenticated search, lead management, notes,
+follow-ups, lists, templates, settings persistence, Overview, Analytics, and the
+read-only AI sales assistant. AI features require a server-side `GROQ_API_KEY`;
+chat also requires per-discussion context consent. See `docs/development.md`.
 
-User-owned templates now support editing, placeholders, and AI-generated
-drafts. Lists, settings persistence, and full Analytics remain unfinished.
-The AI assistant does not create leads, modify data, or generate arbitrary SQL.
+Automated tests are unit-level. Hosted RLS isolation, complete authenticated
+workflows, email delivery, and Overture/DuckDB compatibility on the production
+host have not been verified. The AI assistant cannot modify CRM data or run SQL.
 
 See `PROJECT_BRIEF.md` §11 and `docs/roadmap.md` for the authoritative status.

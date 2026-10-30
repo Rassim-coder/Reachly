@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getCurrentUser } from "@/lib/auth/session";
 import { decodeSearchCursor, encodeSearchCursor } from "@/lib/overture/cursor";
 import { normalizeBusinesses } from "@/lib/overture/normalize";
 import { OVERTURE_RELEASE, OvertureSearchError, runSearch } from "@/lib/overture/query";
@@ -12,8 +13,8 @@ import type { ApiError, ApiErrorCode, BusinessSearchResponse } from "@/types/api
  * route must use the Node.js runtime. Route handlers already default to the
  * Node.js runtime; `cacheComponents` rejects an explicit `runtime` export.
  *
- * The proxy already requires a session for `/api/*`; no additional
- * authentication is applied here.
+ * The Proxy refreshes sessions and redirects private routes, but authorization
+ * is repeated here because Proxy is not the security boundary for data access.
  */
 
 const PAGE_SIZE = 50;
@@ -47,6 +48,11 @@ function parseLocation(location: string): { city: string; country: string } | nu
 }
 
 export async function POST(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return errorResponse("UNAUTHENTICATED", "Sign in to search businesses.", 401);
+  }
+
   let payload: unknown;
 
   try {

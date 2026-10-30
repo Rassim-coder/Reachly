@@ -1,8 +1,8 @@
-p# Reachly — Development Setup
+# Reachly — Development Setup
 
 ## 1. Prerequisites
 
-- Node.js 20+ (developed against Node 24)
+- Node.js 20.9+ for Next.js 16 (developed and tested with Node 24; `pnpm test` needs a recent Node 22/24 runtime for native TypeScript support)
 - pnpm 11 (`package.json` pins `packageManager`)
 - A Supabase project (hosted is enough; the local Docker stack is optional)
 - Docker Desktop — only if you want `supabase start` locally
@@ -15,8 +15,10 @@ pnpm install
 
 ## 3. Environment variables
 
-Copy `.env.example` to `.env` and fill it in from
-Supabase Dashboard → Project Settings → API:
+Copy `.env.example` to `.env` and fill in the Supabase values from
+Supabase Dashboard → Project Settings → API. Set `NEXT_PUBLIC_SITE_URL` to the
+canonical production origin for email redirects. Configure the server-only
+Groq key to enable AI; it is not needed for the CRM workflows.
 
 | Variable                               | Scope           | Notes                                                                                                                                                                                                                                                                 |
 | -------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -84,9 +86,11 @@ Find `<project-ref>` in the Supabase dashboard URL
 (`https://supabase.com/dashboard/project/<project-ref>`). This command is
 read-only and does not modify the database.
 
-If you later need to make a deliberate schema change, create a new migration
-in `supabase/migrations/` and apply it with `pnpm dlx supabase db push` after
-reviewing it against the hosted project.
+If a deliberate schema change is approved, first inspect the hosted schema,
+create and review a migration, and get explicit approval before applying it.
+Never run `supabase db push` against the existing hosted project as a setup step.
+There are currently no active migrations, so the local stack does not recreate
+the hosted application schema and is not ready for database integration tests.
 
 ### Optional: full local stack
 
@@ -94,11 +98,12 @@ Requires Docker Desktop:
 
 ```bash
 pnpm dlx supabase start   # runs Postgres, Auth, Studio, etc. locally
-pnpm dlx supabase db reset
 ```
 
 When running the local stack, use the local API URL and keys printed by
 `supabase start` in `.env` instead of the hosted project values.
+Do not run `supabase db reset` expecting Reachly tables or data to appear; the
+repository currently has no active schema migration or seed file.
 
 ## 5. Run the app
 
@@ -120,7 +125,7 @@ safe Supabase test-environment strategy.
   Supabase session cookie on every request via `lib/supabase/session.ts`.
 - `app/(dashboard)/layout.tsx` enforces authentication and redirects to
   `/login`; `app/(auth)/layout.tsx` bounces signed-in users to `/overview`.
-- `/` (`app/(marketing)/page.tsx`) is the public marketing homepage. Signed-in
+- `/` (`app/page.tsx`) is the public marketing homepage. Signed-in
   visitors are sent to `/overview`. Get started opens `/login?mode=signup`;
   Sign in opens `/login`.
 - `lib/supabase/{client,server}.ts` provide the browser and server clients.
@@ -131,9 +136,13 @@ safe Supabase test-environment strategy.
   submits, and server/authentication errors render in an inline banner.
 - Sign-up passes the full name as `full_name` metadata, which the
   `handle_new_user` trigger copies into `profiles.full_name`.
-- Password reset is not implemented yet: the "Forgot password?" control only
-  shows an informational banner and sends no email. "Remember me" does not
-  change the session cookie lifetime.
+- Password recovery is implemented: the sign-in form requests a Supabase
+  recovery email, `/auth/callback` exchanges the recovery code, and
+  `/reset-password` updates the password from that recovery session. Configure
+  the production callback URL in Supabase Auth's redirect allow-list and use a
+  working production SMTP provider for delivery.
+- There is no “remember me” option; session duration follows Supabase Auth
+  configuration.
 - `/auth/callback` exchanges the email-confirmation code for a session.
 
 Auth routes are marked `export const instant = false` so Next.js 16 cache
@@ -156,18 +165,21 @@ Empty directories are held with a `.gitkeep` until they contain real code.
 
 ## 8. Current status
 
-Implemented: repository structure, Supabase client/auth wiring, initial schema
-migration, dashboard shell with auth guard, Overture business search with
+Implemented: repository structure, Supabase client/auth wiring, dashboard shell
+with auth guard, Overture business search with
 reload-safe temporary result restoration, saving businesses as leads, and My
 Leads with filters, pagination, a detail drawer, status updates, notes, activity
 history, follow-up dates, page-scoped row selection, bulk status/follow-up
 changes, and authorized bulk deletion.
 
-Implemented: user-owned email and WhatsApp templates with editing, deletion,
-placeholders, and AI-generated drafts. Their live Supabase persistence still
-requires verification in each hosted environment.
+Implemented: user-owned email and WhatsApp templates, lists, persisted settings,
+Overview, Analytics, and AI-generated drafts. Unit tests and local builds pass,
+but authenticated database isolation and end-to-end behavior have not been
+verified with test accounts.
 
-Not implemented: lists, settings persistence, and full Analytics. The
-remaining placeholder pages state this explicitly and render no mock data.
+Production deployment remains unverified for Overture/DuckDB runtime limits,
+provider email delivery, and the target hosting platform. Follow-ups are limited
+to one pending date per lead; editing saved business/contact fields and AI usage
+accounting are also unfinished.
 
 See `PROJECT_BRIEF.md` §11 and `docs/roadmap.md` for the authoritative status.

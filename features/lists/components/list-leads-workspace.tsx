@@ -18,9 +18,6 @@ import {
 import { removeLeadsFromList, type ListMutationResult } from "../actions";
 import { ListFeedback } from "./list-feedback";
 
-const secondaryButtonClasses =
-  "inline-flex h-[32px] items-center justify-center rounded-full border border-line bg-surface px-3.5 text-[12px] font-medium text-muted transition-colors hover:bg-field hover:text-ink disabled:opacity-50";
-
 const primaryButtonClasses =
   "inline-flex h-[32px] items-center justify-center rounded-full bg-primary px-3.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50";
 

@@ -9,8 +9,8 @@ Follow-ups date grouping, and Analytics calculations.
 - **No database integration tests are configured.**
 - **No Supabase test project or local test environment is configured.**
 - Lead saving uses the `save_businesses_as_leads` RPC instead of the service-role
-  client. The function is installed in the development project, but no automated
-  database integration test verifies it and no production verification is claimed.
+  client. The function exists in the currently connected hosted project, but no
+  automated database integration test or authenticated save test verifies it.
 - My Leads has an authenticated, filtered, paginated list; a detail drawer;
   status, note, and follow-up updates; activity history; page-scoped selection;
   bulk status/follow-up updates; and bulk deletion. None of those database paths

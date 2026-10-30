@@ -30,10 +30,3 @@ export const supabasePublishableKey = required(
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 );
-
-/**
- * Supabase service-role key. Server-only; never expose to the browser.
- * Required for privileged operations that bypass RLS, such as inserting
- * shared business records during the save-lead flow.
- */
-export const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

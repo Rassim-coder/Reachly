@@ -325,13 +325,14 @@ async function resolveCityDivision(
 ): Promise<CityInfo & { bbox: BBox }> {
   const iso = countryToIso(country);
   const cityLiteral = sanitizeForSql(city);
+  const citySearchLiteral = sanitizeForSql(city.toLowerCase());
   const countryClause = iso
     ? `country = '${iso}'`
     : // Unknown country: still try, but do not silently pretend it matched.
       `(country IS NOT NULL)`;
 
-  // Match name in primary OR in the common(language->name) map, case-insensitively.
-  const pattern = `'%${cityLiteral.toLowerCase()}%'`;
+  // `contains` treats user input literally; LIKE would interpret `%` and `_`
+  // in a city name as wildcards and could silently broaden the requested area.
   const sql = `
     SELECT names.primary AS name, admin_level, country AS cc, region,
            bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax
@@ -339,9 +340,9 @@ async function resolveCityDivision(
     WHERE ${countryClause}
       AND class = 'land'
       AND (
-        lower(names.primary) LIKE ${pattern}
+        contains(lower(names.primary), '${citySearchLiteral}')
         OR len(
-             list_filter(map_values(names.common), x -> lower(x) LIKE ${pattern})
+             list_filter(map_values(names.common), x -> contains(lower(x), '${citySearchLiteral}'))
            ) > 0
       )
     ORDER BY COALESCE(admin_level, -1) DESC, names.primary = '${cityLiteral}' DESC

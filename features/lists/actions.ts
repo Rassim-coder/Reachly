@@ -89,11 +89,7 @@ export async function renameList(
   return { ok: true, message: "List renamed." };
 }
 
-/**
- * Deletes the list and its memberships only. Saved leads are never touched.
- * Memberships are removed explicitly first so this does not depend on the
- * foreign key being configured with ON DELETE CASCADE.
- */
+/** Deletes the list; its owned memberships cascade, but saved leads are kept. */
 export async function deleteList(listId: string): Promise<ListMutationResult> {
   const user = await getCurrentUser();
   if (!user) return fail("Sign in to delete lists.");
@@ -101,18 +97,6 @@ export async function deleteList(listId: string): Promise<ListMutationResult> {
   if (!isValidListId(listId)) return fail("This list is invalid.");
 
   const supabase = await createClient();
-
-  const { error: membershipError } = await supabase
-    .from("list_leads")
-    .delete()
-    .eq("list_id", listId)
-    .eq("user_id", user.id);
-
-  if (membershipError) {
-    console.error("deleteList: membership delete failed", membershipError);
-    return fail("Could not delete the list. Please try again.");
-  }
-
   const { data, error } = await supabase
     .from("lists")
     .delete()

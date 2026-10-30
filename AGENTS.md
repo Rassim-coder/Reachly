@@ -37,11 +37,11 @@ Read `PROJECT_BRIEF.md` and relevant files in `docs/` before substantial changes
 
 ### Current Implementation Status
 
-- Supabase authentication and session handling are implemented.
-- The dashboard layout and navigation shell are implemented.
-- Prospecting and CRM feature pages remain placeholders until their functionality is implemented and verified.
-- The hosted Supabase database already exists and is the schema source of truth.
-- Do not rebuild existing infrastructure simply because a feature is unfinished.
+- Supabase authentication includes sign-in, sign-up, password recovery, and session handling.
+- Overture search, lead saving and management, follow-ups, lists, templates, settings, Overview, Analytics, and AI endpoints have implementations in this repository.
+- Unit tests and local build checks do not verify hosted database authorization, email delivery, Overture runtime compatibility, or deployed-provider behavior; report those limits explicitly.
+- The hosted Supabase database is the schema source of truth. There are no active schema migrations; do not apply or recreate schema as part of normal feature work.
+- Some work remains, including multiple follow-ups per lead, editing saved business/contact fields, AI usage accounting, and production-host verification. Inspect the relevant feature and docs instead of assuming a page is a placeholder.
 
 ## 3. Before Making Changes
 

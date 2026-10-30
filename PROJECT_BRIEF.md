@@ -42,11 +42,12 @@ The first major milestone is a complete working workflow:
 
 ### Current repository status
 
-The repository currently contains only the initial Next.js setup. The application features described in this document are not confirmed to be implemented.
-
-The database schema, dashboard design, folder structure proposal, and Overture implementation prompt have been prepared separately. They must be reviewed and incorporated into the repository before implementation.
-
-Do not confuse planned architecture with working code.
+The repository now contains the Next.js application, Supabase authentication,
+server-side Overture search, CRM workflows, and dashboard features described
+below. Treat feature-specific notes in §6 and `docs/development.md` as the
+implementation status. Local unit/build checks do not prove authenticated
+database isolation or production-host compatibility; do not confuse code
+presence with end-to-end verification.
 
 ## 4. Business Discovery with Overture Maps
 
@@ -133,69 +134,39 @@ The Overview uses server-side authenticated queries and renders empty/error stat
 
 #### 6.2 Find Businesses
 
-**Currently works in the UI**
-- Editable niche and location fields.
-- Results table with a Save lead button that changes to Saved.
+**Implemented in the repository:** server-side Overture search with validated
+niche/location input, normalized optional contact data, keyset pagination,
+reload-safe temporary result restoration, filters, and single/bulk lead saving.
+Search results are not persisted unless the user explicitly saves them.
 
-**Missing**
-- Search button does nothing.
-- The table contains six fixed rows.
-- Saving does not add a lead to My Leads.
-
-**Target behavior**
-- Search the real Overture dataset.
-- Display normalized business results.
-- Allow users to save selected businesses as leads.
-- Reflect saved state accurately.
+**Not verified for deployment:** Overture release availability, remote DuckDB
+runtime/memory/timeout behavior on the selected host, and authenticated browser
+search/save with test accounts.
 
 #### 6.3 My Leads
 
-**Currently works in the UI**
-- Filter chips: All, New, Contacted, Replied, Follow-up.
-- Table showing business, niche, location, status, last contact, and next follow-up.
-
-**Missing**
-- Add lead does nothing.
-- No editing, deleting, status changes, notes, or lead detail page.
-
-**Target behavior**
-- Display persistent leads belonging to the authenticated user.
-- Support lead details, status changes, notes, and appropriate edit/delete actions.
+**Implemented in the repository:** owner-scoped persistent lead list with filters,
+sorting and pagination; lead details/activity; status and note updates; follow-up
+dates; and page-scoped bulk status, follow-up, and delete actions. Editing saved
+business/contact fields remains unfinished. Authenticated database workflows
+and cross-account isolation still require integration verification.
 
 #### 6.4 Follow-ups
 
-The current navigation badge displays 8.
-
-**Currently works in the UI**
-- Tasks grouped into Overdue, Today, and This week.
-- Checkboxes strike through and fade completed tasks.
-
-**Missing**
-- Tasks are not linked to leads or actual dates.
-- Completing a task does not update the badge.
-- Users cannot add or reschedule tasks.
-
-**Target behavior**
-- Link follow-ups to persistent leads and dates.
-- Support scheduling, rescheduling, and completion.
-- Derive the badge from real follow-up data.
+**Implemented in the repository:** follow-ups use the existing single
+`next_follow_up_date` per lead; the queue groups overdue, today, and upcoming
+items, supports scheduling/rescheduling/clearing/completion, and derives the
+dashboard notification from persisted data. Multiple pending follow-ups per lead
+are not supported by the current schema. Database behavior still needs
+authenticated integration tests.
 
 ### Organize
 
 #### 6.5 Lists
 
-**Currently works in the UI**
-- Four list cards.
-- Lead count, last update, and contacted progress bar.
-
-**Missing**
-- New list and Open buttons do nothing.
-- Leads cannot be added to or removed from lists.
-
-**Target behavior**
-- Allow users to create, open, and manage their own lists.
-- Associate and remove their own leads from lists.
-- Calculate counts and progress from real data.
+**Implemented in the repository:** users can create, rename, and delete their
+own lists, open lists, and add/remove owned leads. Counts come from persisted
+memberships. Database authorization and full browser flows remain unverified.
 
 #### 6.6 Analytics
 
@@ -242,19 +213,10 @@ limits held in server memory; no database changes are needed.
 
 ### Settings
 
-**Currently works in the UI**
-- Editable name, target niches, target location, and what the user offers.
-- Three notification checkboxes.
-- Save changes button changes its label.
-
-**Missing**
-- Settings are not persisted.
-- Other application features do not use these values.
-
-**Target behavior**
-- Persist settings for the authenticated user.
-- Validate and load saved preferences.
-- Use preferences in relevant workflows only when explicitly supported by implemented behavior.
+**Implemented in the repository:** profile name and notification preferences
+persist for the authenticated user; appearance is stored locally. Notification
+preferences affect which real follow-up groups appear in the dashboard bell.
+Cross-session persistence and ownership still require integration verification.
 
 ## 7. MVP Scope and Priorities
 
@@ -363,26 +325,15 @@ Use these labels consistently in project documentation:
 
 ## 11. Current Status Summary
 
-**Known to exist**
-- Initial Next.js setup.
-- Prepared dashboard design and design prompt.
-- Prepared database schema proposal.
-- Prepared Overture implementation prompt.
-- Proposed folder structure.
-- Supplied description of dashboard UI behavior and missing features.
+**Implemented in the repository:** Supabase authentication, Overture/DuckDB
+search code, lead persistence and CRM actions, lists, templates, settings,
+follow-ups, Overview, Analytics, and AI routes.
 
-**Not confirmed as implemented**
-- Supabase migrations and authentication.
-- Overture/DuckDB integration.
-- Real business search.
-- Persistent lead management.
-- Notes, follow-ups, and template workflows.
-- Lists and settings persistence.
-- Dynamic analytics.
-- AI backend for template generation and sales-assistant chat.
-- Production deployment.
-
-The repository and actual project materials must be inspected before claiming that any of these features work.
+**Not yet verified or unfinished:** authenticated multi-user/RLS integration
+tests, browser end-to-end workflows, selected-host Overture/DuckDB compatibility,
+production deployment, saved business/contact editing, multiple follow-ups per
+lead, and AI usage/cost tracking. See `docs/testing.md` and `docs/roadmap.md` for
+verification gaps.
 
 ## 12. Instructions for Coding Agents
 

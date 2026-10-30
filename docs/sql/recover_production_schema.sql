@@ -14,7 +14,8 @@
 --
 -- This file does not contain:
 --   * table data, auth users, leads, or secrets
---   * the save_businesses_as_leads function (it does not exist in production)
+--   * the save_businesses_as_leads function (it was absent when this snapshot
+--     was recovered on 2026-10-25 and was added to the connected hosted project later)
 --   * changes to supabase/migrations or application code
 --
 -- Apply as the postgres role. The script is one-shot and intentionally fails if

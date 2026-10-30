@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { supabaseServiceRoleKey, supabaseUrl } from "@/lib/env";
+import { supabaseUrl } from "@/lib/env";
 
 import type { Database } from "./database.types";
 
@@ -14,14 +14,16 @@ import type { Database } from "./database.types";
  * background jobs).
  */
 export function createAdminClient() {
-  if (!supabaseServiceRoleKey) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!serviceRoleKey) {
     throw new Error(
       "Missing SUPABASE_SERVICE_ROLE_KEY. " +
         "Add it to .env for server-side privileged operations.",
     );
   }
 
-  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+  return createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: {
       // The admin client does not manage browser sessions.
       autoRefreshToken: false,

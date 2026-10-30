@@ -9,11 +9,11 @@ Build one working end-to-end workflow at a time. A visual component is not compl
 Tasks:
 
 - [ ] Review the initial Next.js repository.
-- [ ] Add and review project documentation.
-- [ ] Confirm the folder structure.
-- [ ] Agree on the normalized business type and proposed search API contract.
-- [ ] Inspect the existing DuckDB prototype, if available.
-- [ ] Confirm Git branches and contributor responsibilities.
+- [x] Add and review project documentation.
+- [x] Confirm the folder structure.
+- [x] Agree on the normalized business type and search API contract.
+- [x] Inspect and port the existing DuckDB prototype.
+- [x] Confirm Git branches and contributor responsibilities.
 
 Acceptance criteria:
 
@@ -25,16 +25,17 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Review the prepared SQL schema.
-- [ ] Set up the development Supabase project.
-- [ ] Apply a tracked migration.
-- [ ] Configure authentication.
-- [ ] Enable and test RLS.
+- [x] Review the hosted SQL schema and policies (the hosted database is the source of truth).
+- [x] Configure authentication.
+- [x] Enable RLS on user-owned tables and inspect hosted policies.
 - [ ] Test user isolation with multiple accounts.
+
+There are no active migrations. Do not restore or apply the archived baseline as
+a substitute for inspecting the hosted project.
 
 Acceptance criteria:
 
-- Migrations apply successfully.
+- Hosted schema and RLS policies match the documented application model.
 - Users cannot access other users' protected records.
 - Privileged credentials remain server-side.
 
@@ -43,15 +44,14 @@ Acceptance criteria:
 Tasks:
 
 - [ ] Inspect and preserve the existing prototype.
-- [ ] Confirm the Overture release and schema.
-- [ ] Implement location resolution.
-- [ ] Implement niche-to-category mapping.
-- [ ] Query GeoParquet through DuckDB.
-- [ ] Normalize business results.
-- [ ] Add validation, limits, and error handling.
-- [ ] Test geographic and category accuracy.
-- [ ] Benchmark performance.
-- [ ] Validate deployment compatibility.
+- [x] Confirm and pin the Overture release and schema.
+- [x] Implement location resolution.
+- [x] Implement niche-to-category mapping.
+- [x] Query GeoParquet through DuckDB.
+- [x] Normalize business results.
+- [x] Add validation, limits, and error handling.
+- [x] Test geographic/category cases and measure local performance.
+- [ ] Validate deployment compatibility and resource limits on the selected host.
 
 Acceptance criteria:
 
@@ -64,11 +64,11 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Replace the six fixed result rows with API data.
-- [ ] Connect the search form.
-- [ ] Add loading, empty, and error states.
-- [ ] Connect result selection and save actions.
-- [ ] Test the workflow in the browser.
+- [x] Replace fixed result rows with API data.
+- [x] Connect the search form.
+- [x] Add loading, empty, and error states.
+- [x] Connect result selection and save actions.
+- [ ] Test authenticated search/save end-to-end in the browser.
 
 Acceptance criteria:
 
@@ -109,7 +109,7 @@ Tasks:
 - [x] Schedule and reschedule follow-ups.
 - [x] Link follow-ups to leads.
 - [x] Complete follow-ups.
-- [ ] Derive navigation badge counts from real data.
+- [x] Derive navigation notification counts from real data.
 - [x] Display a dedicated Overdue, Today, and Upcoming queue.
 
 Acceptance criteria:
@@ -124,7 +124,7 @@ Tasks:
 
 - [x] Define the meaning and formula of each implemented metric.
 - [x] Connect the overview cards to real data.
-- [ ] Connect Recent Leads, Pipeline, Follow-ups Due, and Leads by Niche panels
+- [x] Connect Recent Leads, Pipeline, Follow-ups Due, and Leads by Niche panels
   on the Overview page.
 - [x] Connect Analytics pipeline, status distribution, and Leads by Niche.
 - [x] Connect the Leads Over Time and Outreach Activity charts.
@@ -142,13 +142,13 @@ Acceptance criteria:
 
 Tasks:
 
-- [ ] Create and manage lists.
-- [ ] Add and remove leads from lists.
-- [ ] Calculate list counts and progress.
-- [ ] Create, edit, and delete templates.
-- [ ] Implement template placeholder substitution.
-- [ ] Persist user settings.
-- [ ] Apply saved preferences to relevant workflows.
+- [x] Create and manage lists.
+- [x] Add and remove leads from lists.
+- [x] Calculate list counts from persisted memberships.
+- [x] Create, edit, and delete templates.
+- [x] Implement template placeholder substitution.
+- [x] Persist user settings.
+- [x] Apply notification preferences to the dashboard bell.
 
 Acceptance criteria:
 
@@ -198,6 +198,8 @@ Acceptance criteria:
 
 ## Immediate Next Step
 
-Complete Phase 0, then prioritize the search service and agree on its API contract so frontend work can proceed with fixtures in parallel.
+Complete the outstanding Phase 8 verification: test authenticated flows and
+RLS isolation in an isolated database, then verify the Overture/DuckDB workload
+on the selected production host before deployment.
 
 Do not begin every phase simultaneously. Reassess the roadmap as each milestone is verified.

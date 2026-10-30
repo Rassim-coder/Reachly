@@ -42,9 +42,10 @@ export default async function DashboardLayout({
 
   const displayName =
     profileDisplayName ||
-    user.user_metadata.full_name?.trim() ||
-    user.email?.split("@")[0] ||
-    null;
+    (typeof user.user_metadata.full_name === "string"
+      ? user.user_metadata.full_name.trim()
+      : "") ||
+    user.email?.split("@")[0];
 
   return (
     <div className="flex min-h-dvh flex-1">
