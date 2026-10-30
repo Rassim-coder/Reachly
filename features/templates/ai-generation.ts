@@ -12,7 +12,7 @@ import {
 
 const GROQ_CHAT_COMPLETIONS_URL =
   "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b";
+const DEFAULT_TEMPLATE_MODEL = "qwen/qwen3.8-27b";
 const GENERATION_TIMEOUT_MS = 12_000;
 
 export type TemplateGenerationErrorKind =
@@ -55,7 +55,8 @@ export async function generateTemplateDraft(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL,
+        model:
+          process.env.TEMPLATE_AI_MODEL?.trim() || DEFAULT_TEMPLATE_MODEL,
         temperature: 0.6,
         max_tokens: 500,
         response_format: { type: "json_object" },
@@ -88,9 +89,27 @@ export async function generateTemplateDraft(
 
   if (!response.ok) {
     console.error("Template AI provider request failed", response.status);
+    if (response.status === 401 || response.status === 403) {
+      throw new TemplateGenerationError(
+        "provider",
+        "The AI provider rejected its credentials. Check the server-side GROQ_API_KEY.",
+      );
+    }
+    if (response.status === 429) {
+      throw new TemplateGenerationError(
+        "provider",
+        "The AI service is busy or its provider quota has been reached. Please try again shortly.",
+      );
+    }
+    if (response.status === 400) {
+      throw new TemplateGenerationError(
+        "provider",
+        "The configured AI model rejected this request. Check TEMPLATE_AI_MODEL or try again.",
+      );
+    }
     throw new TemplateGenerationError(
       "provider",
-      "The AI service could not complete this request. Please try again.",
+      "The AI service is temporarily unavailable. Please try again.",
     );
   }
 

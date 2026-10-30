@@ -29,8 +29,10 @@ Supabase Dashboard → Project Settings → API:
 
 AI Assistant requires a GroqCloud API key in `GROQ_API_KEY`. Keep it
 server-only; do not use a `NEXT_PUBLIC_` prefix. `GROQ_MODEL` optionally
-overrides the model ID (default: `openai/gpt-oss-20b`). AI template generation
-uses the same server-side Groq configuration. `TEMPLATE_AI_DAILY_LIMIT` sets
+overrides the AI assistant model ID (default: `openai/gpt-oss-20b`). AI
+template generation uses the same server-side Groq key, with its own
+`TEMPLATE_AI_MODEL` setting (default: `qwen/qwen3.8-27b`, which supports the
+strict JSON response mode used for drafts). `TEMPLATE_AI_DAILY_LIMIT` sets
 the per-user generation limit per UTC day (1–100, default 20). Quota counts
 are kept in server memory; this requires no database table or migration. Counts
 reset when the server restarts and are not shared across multiple server

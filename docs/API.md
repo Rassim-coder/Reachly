@@ -21,11 +21,12 @@ counts reset on server restart and are not shared across server instances.
 This rate limit requires no database changes.
 
 The server sends only these generation details to Groq. It uses `GROQ_API_KEY`
-and optional `GROQ_MODEL` from the server environment and never returns provider
-credentials. Successful responses contain `{ "draft": { "subject": string |
-null, "body": string } }`; WhatsApp subjects are always null. Invalid requests
-return `400`, unauthenticated requests `401`, exhausted daily quota `429`, and
-provider/configuration failures a clear non-secret error response.
+and optional `TEMPLATE_AI_MODEL` (default `qwen/qwen3.8-27b`) from the server
+environment and never returns provider credentials. Successful responses
+contain `{ "draft": { "subject": string | null, "body": string } }`; WhatsApp
+subjects are always null. Invalid requests return `400`, unauthenticated
+requests `401`, exhausted daily quota `429`, and provider/configuration failures
+a clear non-secret error response.
 
 ## 2. Business Search
 
