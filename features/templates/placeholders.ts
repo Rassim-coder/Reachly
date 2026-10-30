@@ -1,24 +1,47 @@
 /**
  * Pure placeholder handling for message templates.
  *
- * Substitution is a single, literal pass over `{{key}}` tokens. Template text
- * is never evaluated or interpreted as HTML, and values are inserted as plain
- * text (React escapes them when rendered). A placeholder that cannot be
- * resolved is left visible instead of being replaced by an empty string.
+ * Substitution is a single, literal pass over supported `{key}` tokens and
+ * legacy `{{key}}` tokens. Template text is never evaluated as HTML, and a
+ * placeholder without a real value stays visible for the user to review.
  */
 
 export const TEMPLATE_PLACEHOLDERS = [
   {
     key: "business_name",
-    token: "{{business_name}}",
+    token: "{business_name}",
     label: "Business name",
     description: "Name of the saved business.",
   },
   {
-    key: "your_name",
-    token: "{{your_name}}",
+    key: "owner_name",
+    token: "{owner_name}",
+    label: "Owner name",
+    description: "Business owner's name, when available.",
+  },
+  {
+    key: "city",
+    token: "{city}",
+    label: "City",
+    description: "City of the saved business.",
+  },
+  {
+    key: "category",
+    token: "{category}",
+    label: "Category",
+    description: "Category of the saved business.",
+  },
+  {
+    key: "my_name",
+    token: "{my_name}",
     label: "Your name",
     description: "Your name from your account, when available.",
+  },
+  {
+    key: "my_company",
+    token: "{my_company}",
+    label: "Your company",
+    description: "Your company name, when available.",
   },
 ] as const;
 
@@ -44,7 +67,14 @@ export type RenderedTemplate = {
 
 // A new RegExp per call avoids shared `lastIndex` state between callers.
 function tokenPattern(): RegExp {
-  return /\{\{\s*([^{}]*?)\s*\}\}/g;
+  return /\{\{\s*([^{}]*?)\s*\}\}|\{\s*([a-zA-Z0-9_]+)\s*\}/g;
+}
+
+function canonicalKey(value: string): string {
+  const key = value.trim().toLowerCase();
+  if (key === "your_name") return "my_name";
+  if (key === "contact_name") return "owner_name";
+  return key;
 }
 
 export function isPlaceholderKey(value: string): value is PlaceholderKey {
@@ -73,7 +103,7 @@ export function splitTemplate(
       segments.push({ type: "text", text: template.slice(cursor, index) });
     }
 
-    const key = match[1].trim().toLowerCase();
+    const key = canonicalKey(match[1] ?? match[2] ?? "");
 
     if (!isPlaceholderKey(key)) {
       segments.push({ type: "unknown", token: match[0] });
@@ -83,7 +113,7 @@ export function splitTemplate(
       segments.push(
         value
           ? { type: "resolved", key, text: value }
-          : { type: "missing", key, token: `{{${key}}}` },
+          : { type: "missing", key, token: match[0] },
       );
     }
 
@@ -131,7 +161,7 @@ export function findUnknownPlaceholders(text: string): string[] {
   const unknown: string[] = [];
 
   for (const match of text.matchAll(tokenPattern())) {
-    const key = match[1].trim().toLowerCase();
+    const key = canonicalKey(match[1] ?? match[2] ?? "");
 
     if (!isPlaceholderKey(key) && !unknown.includes(match[0])) {
       unknown.push(match[0]);

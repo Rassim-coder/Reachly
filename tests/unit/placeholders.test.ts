@@ -16,6 +16,16 @@ test("is tolerant to case and inner spaces", () => {
   assert.equal(result.text, "Zed Gym");
 });
 
+test("supports the outreach placeholders while preserving legacy aliases", () => {
+  const result = renderTemplate("{business_name} {my_name} {{contact_name}}", {
+    business_name: "Zed Gym",
+    my_name: "Alex",
+    owner_name: "Sam",
+  });
+
+  assert.equal(result.text, "Zed Gym Alex Sam");
+});
+
 test("inserts values literally, never as patterns or markup", () => {
   const result = renderTemplate("Hi {{business_name}}", {
     business_name: "$& <b>Co</b> {{city}}",

@@ -51,7 +51,8 @@ AI sales assistant that can analyze recent leads and help plan next steps.
 AI chat requires per-discussion context consent and a server-side Groq API key;
 see `docs/development.md`.
 
-Lists, templates, settings persistence, and full Analytics remain unfinished.
+User-owned templates now support editing, placeholders, and AI-generated
+drafts. Lists, settings persistence, and full Analytics remain unfinished.
 The AI assistant does not create leads, modify data, or generate arbitrary SQL.
 
 See `PROJECT_BRIEF.md` §11 and `docs/roadmap.md` for the authoritative status.

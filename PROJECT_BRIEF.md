@@ -213,20 +213,11 @@ The Analytics page uses server-side, owner-scoped queries and sends only aggrega
 
 #### 6.7 Templates
 
-**Currently works in the UI**
-- Three message cards: WhatsApp intro, Email intro, Call script.
-- Copy button.
-
-**Missing**
-- New template does nothing.
-- Templates cannot be edited or deleted.
-- Placeholders `{name}`, `{business}`, and `{city}` are not interpolated.
-
-**Target behavior**
-- Support reusable, user-owned templates.
-- Allow create, edit, delete, and copy actions.
-- Replace placeholders using available lead information.
-- Handle missing placeholder values safely.
+**Implemented:** authenticated users can create, edit, duplicate, delete, and
+use email and WhatsApp templates. The editor supports safe lead placeholders
+and AI-generated drafts; generated text is reviewed and edited before use.
+AI generation uses the server-side Groq configuration and per-user daily
+limits held in server memory; no database changes are needed.
 
 ### Assistant
 
@@ -385,9 +376,10 @@ Use these labels consistently in project documentation:
 - Overture/DuckDB integration.
 - Real business search.
 - Persistent lead management.
-- Notes, follow-ups, lists, templates, and settings persistence.
+- Notes, follow-ups, and template workflows.
+- Lists and settings persistence.
 - Dynamic analytics.
-- AI backend.
+- AI backend for template generation and sales-assistant chat.
 - Production deployment.
 
 The repository and actual project materials must be inspected before claiming that any of these features work.

@@ -6,6 +6,28 @@ These contracts are proposed unless an endpoint is explicitly marked **implement
 
 The exact route names may change during implementation, but the frontend and backend must agree on request and response types.
 
+## 2. AI Template Generation
+
+### Endpoint — implemented
+
+`POST /api/templates/generate`
+
+Requires an authenticated session and the
+server-side Groq configuration. It validates channel (`email` or `whatsapp`),
+goal, tone, language (`en` or `fr`), an offer (1–200 characters), and optional
+instructions (up to 300 characters). Generation is limited per user per UTC
+day in server memory by `TEMPLATE_AI_DAILY_LIMIT` (default 20, maximum 100);
+counts reset on server restart and are not shared across server instances.
+This rate limit requires no database changes.
+
+The server sends only these generation details to Groq. It uses `GROQ_API_KEY`
+and optional `TEMPLATE_AI_MODEL` (default `qwen/qwen3.8-27b`) from the server
+environment and never returns provider credentials. Successful responses
+contain `{ "draft": { "subject": string | null, "body": string } }`; WhatsApp
+subjects are always null. Invalid requests return `400`, unauthenticated
+requests `401`, exhausted daily quota `429`, and provider/configuration failures
+a clear non-secret error response.
+
 ## 2. Business Search
 
 ### Endpoint — implemented
