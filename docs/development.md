@@ -2,7 +2,7 @@
 
 ## 1. Prerequisites
 
-- Node.js 20.9+ for Next.js 16 (developed and tested with Node 24; `pnpm test` needs a recent Node 22/24 runtime for native TypeScript support)
+- Node.js 24.x (Next.js 16 and the DuckDB native binding are tested locally with Node 24.18; `pnpm test` also needs a recent Node runtime for native TypeScript support)
 - pnpm 11 (`package.json` pins `packageManager`)
 - A Supabase project (hosted is enough; the local Docker stack is optional)
 - Docker Desktop — only if you want `supabase start` locally
