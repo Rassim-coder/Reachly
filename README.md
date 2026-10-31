@@ -238,8 +238,8 @@ Make sure you have installed:
 ### 1. Clone the repository
 
 ```bash
-git clone YOUR_REPOSITORY_URL
-cd reachly
+git clone https://github.com/Rassim-coder/Reachly.git
+cd Reachly
 ```
 
 ### 2. Install dependencies
@@ -302,7 +302,7 @@ This helps detect issues before changes are merged into the main branch.
 
 Reachly was built by a three-person team, with each contributor taking ownership of different parts of the product.
 
-### Racim Ait Said — Architecture, Backend & Core Product
+### Racim Ait Said — Founder | Architecture, Backend & Core Product
 - Designed the database schema and data model.
 - Defined the application architecture.
 - Designed the product interface alongside the team.
