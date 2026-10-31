@@ -286,7 +286,7 @@ pnpm build
 
 Reachly uses GitHub Actions to automatically check code changes.
 
-The CI workflow runs on pushes to `main` and pull requests targeting `main`.
+The CI workflow runs on pushes to `master` and pull requests targeting `master`.
 
 It performs three checks:
 
