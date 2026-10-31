@@ -31,6 +31,12 @@ Open [http://localhost:3000](http://localhost:3000).
 - `pnpm typecheck` – run TypeScript validation
 - `pnpm test` – run offline unit tests
 
+## Continuous integration
+
+GitHub Actions runs lint, unit tests, and the production build on pushes to
+`master` and pull requests targeting `master`. The workflow is defined in
+`.github/workflows/ci.yml`.
+
 ## Documentation
 
 | Document | Contents |
